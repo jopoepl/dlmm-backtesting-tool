@@ -34,10 +34,10 @@ export interface PoolSnapshot {
   bin_data: BinSnapshot[];
 
   // From CoinGecko API - market context
-  market_price: number;
+  market_price: number; // Real-time price from CoinGecko
   market_volume_24h: number;
   market_change_24h: number;
-  price_deviation: number;
+  price_deviation: number; // Deviation between pool price and market price
 }
 
 export interface SnapshotCollectionResult {
@@ -100,9 +100,9 @@ export interface PoolSnapshotsTable {
   bin_step: number;
   base_factor: number;
   protocol_fee: number;
-  current_price: number;
-  market_price: number;
-  price_deviation: number;
+  current_price: number; // Active bin price from pool
+  market_price: number; // Real-time price from CoinGecko
+  price_deviation: number; // Deviation between pool and market price
   market_volume_24h: number;
   market_change_24h: number;
   bin_data: BinSnapshot[]; // JSON field

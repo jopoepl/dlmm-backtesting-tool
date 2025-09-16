@@ -40,21 +40,61 @@ async function retryWithBackoff<T>(
   throw new Error("Max retries exceeded");
 }
 
+// Helper function to get market price from CoinGecko
+async function getMarketPriceFromCoinGecko(
+  coinId: string = "saros-finance"
+): Promise<number> {
+  try {
+    const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
+    const COINGECKO_API_URL =
+      process.env.COINGECKO_API_URL || "https://api.coingecko.com/api/v3";
+
+    const url = `${COINGECKO_API_URL}/simple/price?ids=${coinId}&vs_currencies=usd`;
+
+    const options = {
+      method: "GET",
+      headers: { "x-cg-demo-api-key": `${COINGECKO_API_KEY}` },
+    };
+
+    console.log(`🔄 Fetching market price for ${coinId} from CoinGecko...`);
+    console.log(`🌐 URL: ${url}`);
+
+    const response = await fetch(url, options);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const price = data[coinId]?.usd;
+
+    if (!price) {
+      throw new Error(`No price data found for ${coinId}`);
+    }
+
+    console.log(`✅ CoinGecko market price: $${price}`);
+    return price;
+  } catch (error) {
+    console.error("❌ Error fetching market price from CoinGecko:", error);
+    throw error;
+  }
+}
+
 // Helper function to get market price with fallback
 async function getMarketPriceWithFallback(
   poolAddress: string
 ): Promise<number> {
   try {
-    // Try to get current market price with retry logic
+    // Try to get market price from CoinGecko
     const marketPrice = await retryWithBackoff(
-      () => dlmmService.getCurrentMarketPrice(poolAddress),
+      () => getMarketPriceFromCoinGecko("saros-finance"),
       2, // Reduced retries to avoid long delays
       1000 // Reduced base delay
     );
     return marketPrice || 0;
   } catch (error) {
     console.warn(
-      "⚠️ Could not fetch market price due to rate limiting, using active bin price as fallback"
+      "⚠️ Could not fetch market price from CoinGecko, using active bin price as fallback"
     );
     // Fallback to active bin price
     const activeBinPrice = await dlmmService.getActiveBinPrice(poolAddress);
@@ -149,8 +189,8 @@ function transformToPoolSnapshot(
   const binData: BinSnapshot[] = surroundingBins.map((bin) => {
     const binData = bin as {
       binId: number;
-      baseAmount: number;
-      quoteAmount: number;
+      baseAmount: string;
+      quoteAmount: string;
       price: number;
       liquidity: string;
     };
@@ -249,7 +289,7 @@ export async function saveSnapshotToDatabase(
 
     const { data, error } = await client
       .from("pool_snapshots")
-      .insert(insertData)
+      .insert(insertData as any)
       .select();
 
     if (error) {

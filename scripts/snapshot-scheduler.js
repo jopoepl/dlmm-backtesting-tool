@@ -23,15 +23,28 @@ console.log("🚀 Starting DLMM Analytics Snapshot Scheduler...");
 console.log("📅 Started at:", new Date().toISOString());
 console.log("📁 Working directory:", process.cwd());
 
-// Import the snapshot service
-let logPoolData;
-try {
-  const snapshotService = require("../src/lib/data/snapshotService.ts");
-  logPoolData = snapshotService.logPoolData;
-} catch (error) {
-  console.error("❌ Failed to load snapshot service:", error.message);
-  process.exit(1);
-}
+// Use the API endpoint approach
+console.log("🔗 Using API endpoint for snapshot collection...");
+
+const logPoolData = async () => {
+  try {
+    // Use the API route
+    const response = await fetch("http://localhost:3000/api/snapshot");
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(result.message || "API returned error");
+    }
+
+    return result.snapshot;
+  } catch (error) {
+    console.error("❌ API call failed:", error.message);
+    throw error;
+  }
+};
 
 // Function to collect and save snapshot
 async function collectSnapshot() {
