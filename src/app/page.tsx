@@ -5,7 +5,6 @@ import { WalletButton } from "@/components/wallet/WalletButton";
 import { BacktestingDashboard } from "@/components/backtesting/BacktestingDashboard";
 import { PriceService } from "@/lib/data/priceService";
 import { Modal } from "@/components/ui/Modal";
-import { DatabaseTester } from "@/components/admin/DatabaseTester";
 import {
   testDatabaseConnection,
   checkTablesExist,
@@ -15,7 +14,6 @@ import {
   saveSnapshotToDatabase,
 } from "@/lib/data/snapshotService";
 import { DLMMService, SAROS_USDC_PAIR_ADDRESS } from "@/lib/dlmm/client";
-import { Connection } from "@solana/web3.js";
 
 export default function Home() {
   const priceService = new PriceService();
@@ -30,7 +28,7 @@ export default function Home() {
       | "dlmm-bins-advanced"
       | "dlmm-complete"
       | null;
-    data: any;
+    data: unknown;
     error: string | null;
     loading: boolean;
   }>({
@@ -541,28 +539,40 @@ export default function Home() {
               ) : testResults.type === "database" ? (
                 <div className="space-y-2">
                   <p className="text-green-700 text-sm">
-                    <strong>Status:</strong> {testResults.data.status}
+                    <strong>Status:</strong>{" "}
+                    {(testResults.data as { status?: string })?.status}
                   </p>
                   <p className="text-green-700 text-sm">
                     <strong>Connection:</strong>{" "}
-                    {testResults.data.connectionTime}
+                    {
+                      (testResults.data as { connectionTime?: string })
+                        ?.connectionTime
+                    }
                   </p>
                   <p className="text-green-700 text-sm">
                     <strong>Available Tables:</strong>{" "}
-                    {testResults.data.tables.length > 0
-                      ? testResults.data.tables.join(", ")
+                    {((testResults.data as { tables?: string[] })?.tables
+                      ?.length || 0) > 0
+                      ? (testResults.data as { tables: string[] }).tables.join(
+                          ", "
+                        )
                       : "No tables found"}
                   </p>
-                  {testResults.data.poolRecords !== undefined && (
+                  {(testResults.data as { poolRecords?: number })
+                    ?.poolRecords !== undefined && (
                     <p className="text-green-700 text-sm">
                       <strong>Pool Records:</strong>{" "}
-                      {testResults.data.poolRecords}
+                      {
+                        (testResults.data as { poolRecords: number })
+                          .poolRecords
+                      }
                     </p>
                   )}
-                  {testResults.data.binRecords !== undefined && (
+                  {(testResults.data as { binRecords?: number })?.binRecords !==
+                    undefined && (
                     <p className="text-green-700 text-sm">
                       <strong>Bin Records:</strong>{" "}
-                      {testResults.data.binRecords}
+                      {(testResults.data as { binRecords: number }).binRecords}
                     </p>
                   )}
                 </div>
@@ -570,7 +580,7 @@ export default function Home() {
                 <div className="space-y-4">
                   <div className="bg-green-100 border border-green-300 rounded-lg p-3">
                     <p className="text-green-800 font-medium text-sm mb-2">
-                      ✅ {testResults.data.message}
+                      ✅ {(testResults.data as { message?: string })?.message}
                     </p>
                   </div>
 
@@ -584,19 +594,31 @@ export default function Home() {
                           Pool Address:
                         </p>
                         <p className="text-blue-600 font-mono text-xs">
-                          {testResults.data.snapshot.pool_address}
+                          {
+                            (testResults.data as {
+                              snapshot?: { pool_address?: string };
+                            })?.snapshot?.pool_address
+                          }
                         </p>
                       </div>
                       <div>
                         <p className="font-medium text-gray-700">Pool Name:</p>
                         <p className="text-gray-600">
-                          {testResults.data.snapshot.pool_name}
+                          {
+                            (testResults.data as {
+                              snapshot?: { pool_name?: string };
+                            })?.snapshot?.pool_name
+                          }
                         </p>
                       </div>
                       <div>
                         <p className="font-medium text-gray-700">Timestamp:</p>
                         <p className="text-gray-600">
-                          {testResults.data.snapshot.timestamp}
+                          {
+                            (testResults.data as {
+                              snapshot?: { timestamp?: string };
+                            })?.snapshot?.timestamp
+                          }
                         </p>
                       </div>
                       <div>
@@ -604,7 +626,11 @@ export default function Home() {
                           Active Bin ID:
                         </p>
                         <p className="text-blue-600">
-                          {testResults.data.snapshot.active_bin_id}
+                          {
+                            (testResults.data as {
+                              snapshot?: { active_bin_id?: number };
+                            })?.snapshot?.active_bin_id
+                          }
                         </p>
                       </div>
                       <div>
@@ -612,7 +638,9 @@ export default function Home() {
                           Current Price:
                         </p>
                         <p className="text-green-600">
-                          {testResults.data.snapshot.current_price.toFixed(6)}
+                          {(testResults.data as {
+                            snapshot?: { current_price?: number };
+                          })?.snapshot?.current_price?.toFixed(6)}
                         </p>
                       </div>
                       <div>
@@ -620,7 +648,9 @@ export default function Home() {
                           Market Price:
                         </p>
                         <p className="text-blue-600">
-                          {testResults.data.snapshot.market_price.toFixed(6)}
+                          {(testResults.data as {
+                            snapshot?: { market_price?: number };
+                          })?.snapshot?.market_price?.toFixed(6)}
                         </p>
                       </div>
                       <div>
@@ -629,7 +659,9 @@ export default function Home() {
                         </p>
                         <p className="text-orange-600">
                           {(
-                            testResults.data.snapshot.price_deviation * 100
+                            ((testResults.data as {
+                              snapshot?: { price_deviation?: number };
+                            })?.snapshot?.price_deviation || 0) * 100
                           ).toFixed(2)}
                           %
                         </p>
@@ -637,7 +669,11 @@ export default function Home() {
                       <div>
                         <p className="font-medium text-gray-700">Bin Count:</p>
                         <p className="text-purple-600">
-                          {testResults.data.snapshot.bin_count}
+                          {
+                            (testResults.data as {
+                              snapshot?: { bin_count?: number };
+                            })?.snapshot?.bin_count
+                          }
                         </p>
                       </div>
                     </div>
@@ -653,7 +689,11 @@ export default function Home() {
                           Pool Records:
                         </p>
                         <p className="text-green-600">
-                          {testResults.data.database.poolRecords}
+                          {
+                            (testResults.data as {
+                              database?: { poolRecords?: number };
+                            })?.database?.poolRecords
+                          }
                         </p>
                       </div>
                       <div>
@@ -661,7 +701,11 @@ export default function Home() {
                           Bin Records:
                         </p>
                         <p className="text-green-600">
-                          {testResults.data.database.binRecords}
+                          {
+                            (testResults.data as {
+                              database?: { binRecords?: number };
+                            })?.database?.binRecords
+                          }
                         </p>
                       </div>
                     </div>
@@ -670,10 +714,12 @@ export default function Home() {
               ) : testResults.type === "dlmm" ? (
                 <div className="space-y-2">
                   <p className="text-green-700 text-sm">
-                    <strong>Status:</strong> {testResults.data.status}
+                    <strong>Status:</strong>{" "}
+                    {(testResults.data as { status?: string })?.status}
                   </p>
                   <p className="text-green-700 text-sm">
-                    <strong>Timestamp:</strong> {testResults.data.timestamp}
+                    <strong>Timestamp:</strong>{" "}
+                    {(testResults.data as { timestamp?: string })?.timestamp}
                   </p>
                   <div className="mt-3">
                     <p className="text-green-700 text-sm font-medium mb-2">
@@ -681,7 +727,12 @@ export default function Home() {
                     </p>
                     <div className="bg-gray-50 border rounded-lg p-3 max-h-96 overflow-y-auto">
                       <pre className="text-xs text-gray-700 whitespace-pre-wrap">
-                        {JSON.stringify(testResults.data.poolMetadata, null, 2)}
+                        {JSON.stringify(
+                          (testResults.data as { poolMetadata?: unknown })
+                            ?.poolMetadata,
+                          null,
+                          2
+                        )}
                       </pre>
                     </div>
                   </div>
@@ -689,10 +740,12 @@ export default function Home() {
               ) : testResults.type === "dlmm-reserves" ? (
                 <div className="space-y-2">
                   <p className="text-green-700 text-sm">
-                    <strong>Status:</strong> {testResults.data.status}
+                    <strong>Status:</strong>{" "}
+                    {(testResults.data as { status?: string })?.status}
                   </p>
                   <p className="text-green-700 text-sm">
-                    <strong>Timestamp:</strong> {testResults.data.timestamp}
+                    <strong>Timestamp:</strong>{" "}
+                    {(testResults.data as { timestamp?: string })?.timestamp}
                   </p>
                   <div className="mt-3">
                     <p className="text-green-700 text-sm font-medium mb-2">
@@ -705,7 +758,9 @@ export default function Home() {
                             Base Amount:
                           </p>
                           <p className="text-blue-600">
-                            {testResults.data.reserves.baseAmount.toFixed(6)}
+                            {(testResults.data as {
+                              reserves?: { baseAmount?: number };
+                            })?.reserves?.baseAmount?.toFixed(6)}
                           </p>
                         </div>
                         <div>
@@ -713,7 +768,9 @@ export default function Home() {
                             Quote Amount:
                           </p>
                           <p className="text-blue-600">
-                            {testResults.data.reserves.quoteAmount.toFixed(6)}
+                            {(testResults.data as {
+                              reserves?: { quoteAmount?: number };
+                            })?.reserves?.quoteAmount?.toFixed(6)}
                           </p>
                         </div>
                         <div>
@@ -721,7 +778,11 @@ export default function Home() {
                             Base Decimals:
                           </p>
                           <p className="text-gray-600">
-                            {testResults.data.reserves.baseDecimals}
+                            {
+                              (testResults.data as {
+                                reserves?: { baseDecimals?: number };
+                              })?.reserves?.baseDecimals
+                            }
                           </p>
                         </div>
                         <div>
@@ -729,7 +790,11 @@ export default function Home() {
                             Quote Decimals:
                           </p>
                           <p className="text-gray-600">
-                            {testResults.data.reserves.quoteDecimals}
+                            {
+                              (testResults.data as {
+                                reserves?: { quoteDecimals?: number };
+                              })?.reserves?.quoteDecimals
+                            }
                           </p>
                         </div>
                       </div>
@@ -739,16 +804,19 @@ export default function Home() {
               ) : testResults.type === "dlmm-bins" ? (
                 <div className="space-y-2">
                   <p className="text-green-700 text-sm">
-                    <strong>Status:</strong> {testResults.data.status}
+                    <strong>Status:</strong>{" "}
+                    {(testResults.data as { status?: string })?.status}
                   </p>
                   <p className="text-green-700 text-sm">
-                    <strong>Bin Count:</strong> {testResults.data.binCount}
+                    <strong>Bin Count:</strong>{" "}
+                    {(testResults.data as { binCount?: number })?.binCount}
                   </p>
                   <p className="text-green-700 text-sm">
                     <strong>Method:</strong> getBinArrayInfo
                   </p>
                   <p className="text-green-700 text-sm">
-                    <strong>Timestamp:</strong> {testResults.data.timestamp}
+                    <strong>Timestamp:</strong>{" "}
+                    {(testResults.data as { timestamp?: string })?.timestamp}
                   </p>
                   <div className="mt-3">
                     <p className="text-green-700 text-sm font-medium mb-2">
@@ -756,31 +824,56 @@ export default function Home() {
                     </p>
                     <div className="bg-gray-50 border rounded-lg p-3 max-h-96 overflow-y-auto">
                       <div className="space-y-2">
-                        {testResults.data.bins
+                        {(
+                          (testResults.data as {
+                            bins?: {
+                              binId: number;
+                              price: number;
+                              baseAmount: number;
+                              quoteAmount: number;
+                            }[];
+                          })?.bins || []
+                        )
                           .slice(0, 20)
-                          .map((bin: any, index: number) => (
-                            <div
-                              key={index}
-                              className="flex justify-between items-center p-2 bg-white rounded border"
-                            >
-                              <span className="font-mono text-sm">
-                                Bin {bin.binId}
-                              </span>
-                              <span className="text-sm">
-                                Price: {bin.price.toFixed(6)}
-                              </span>
-                              <span className="text-sm text-gray-600">
-                                Base: {bin.baseAmount}
-                              </span>
-                              <span className="text-sm text-gray-600">
-                                Quote: {bin.quoteAmount}
-                              </span>
-                            </div>
-                          ))}
-                        {testResults.data.bins.length > 20 && (
+                          .map(
+                            (
+                              bin: {
+                                binId: number;
+                                price: number;
+                                baseAmount: number;
+                                quoteAmount: number;
+                              },
+                              index: number
+                            ) => (
+                              <div
+                                key={index}
+                                className="flex justify-between items-center p-2 bg-white rounded border"
+                              >
+                                <span className="font-mono text-sm">
+                                  Bin {bin.binId}
+                                </span>
+                                <span className="text-sm">
+                                  Price: {bin.price.toFixed(6)}
+                                </span>
+                                <span className="text-sm text-gray-600">
+                                  Base: {bin.baseAmount}
+                                </span>
+                                <span className="text-sm text-gray-600">
+                                  Quote: {bin.quoteAmount}
+                                </span>
+                              </div>
+                            )
+                          )}
+                        {(
+                          (testResults.data as { bins?: unknown[] })?.bins || []
+                        ).length > 20 && (
                           <p className="text-gray-500 text-sm text-center">
-                            ... and {testResults.data.bins.length - 20} more
-                            bins
+                            ... and{" "}
+                            {(
+                              (testResults.data as { bins?: unknown[] })
+                                ?.bins || []
+                            ).length - 20}{" "}
+                            more bins
                           </p>
                         )}
                       </div>
@@ -790,16 +883,20 @@ export default function Home() {
               ) : testResults.type === "dlmm-bins-advanced" ? (
                 <div className="space-y-2">
                   <p className="text-green-700 text-sm">
-                    <strong>Status:</strong> {testResults.data.status}
+                    <strong>Status:</strong>{" "}
+                    {(testResults.data as { status?: string })?.status}
                   </p>
                   <p className="text-green-700 text-sm">
-                    <strong>Bin Count:</strong> {testResults.data.binCount}
+                    <strong>Bin Count:</strong>{" "}
+                    {(testResults.data as { binCount?: number })?.binCount}
                   </p>
                   <p className="text-green-700 text-sm">
-                    <strong>Method:</strong> {testResults.data.method}
+                    <strong>Method:</strong>{" "}
+                    {(testResults.data as { method?: string })?.method}
                   </p>
                   <p className="text-green-700 text-sm">
-                    <strong>Timestamp:</strong> {testResults.data.timestamp}
+                    <strong>Timestamp:</strong>{" "}
+                    {(testResults.data as { timestamp?: string })?.timestamp}
                   </p>
                   <div className="mt-3">
                     <p className="text-green-700 text-sm font-medium mb-2">
@@ -807,31 +904,56 @@ export default function Home() {
                     </p>
                     <div className="bg-gray-50 border rounded-lg p-3 max-h-96 overflow-y-auto">
                       <div className="space-y-2">
-                        {testResults.data.bins
+                        {(
+                          (testResults.data as {
+                            bins?: {
+                              binId: number;
+                              price: number;
+                              baseAmount: number;
+                              quoteAmount: number;
+                            }[];
+                          })?.bins || []
+                        )
                           .slice(0, 20)
-                          .map((bin: any, index: number) => (
-                            <div
-                              key={index}
-                              className="flex justify-between items-center p-2 bg-white rounded border"
-                            >
-                              <span className="font-mono text-sm">
-                                Bin {bin.binId}
-                              </span>
-                              <span className="text-sm">
-                                Price: {bin.price.toFixed(6)}
-                              </span>
-                              <span className="text-sm text-gray-600">
-                                Base: {bin.baseAmount}
-                              </span>
-                              <span className="text-sm text-gray-600">
-                                Quote: {bin.quoteAmount}
-                              </span>
-                            </div>
-                          ))}
-                        {testResults.data.bins.length > 20 && (
+                          .map(
+                            (
+                              bin: {
+                                binId: number;
+                                price: number;
+                                baseAmount: number;
+                                quoteAmount: number;
+                              },
+                              index: number
+                            ) => (
+                              <div
+                                key={index}
+                                className="flex justify-between items-center p-2 bg-white rounded border"
+                              >
+                                <span className="font-mono text-sm">
+                                  Bin {bin.binId}
+                                </span>
+                                <span className="text-sm">
+                                  Price: {bin.price.toFixed(6)}
+                                </span>
+                                <span className="text-sm text-gray-600">
+                                  Base: {bin.baseAmount}
+                                </span>
+                                <span className="text-sm text-gray-600">
+                                  Quote: {bin.quoteAmount}
+                                </span>
+                              </div>
+                            )
+                          )}
+                        {(
+                          (testResults.data as { bins?: unknown[] })?.bins || []
+                        ).length > 20 && (
                           <p className="text-gray-500 text-sm text-center">
-                            ... and {testResults.data.bins.length - 20} more
-                            bins
+                            ... and{" "}
+                            {(
+                              (testResults.data as { bins?: unknown[] })
+                                ?.bins || []
+                            ).length - 20}{" "}
+                            more bins
                           </p>
                         )}
                       </div>
@@ -841,10 +963,12 @@ export default function Home() {
               ) : testResults.type === "dlmm-complete" ? (
                 <div className="space-y-2">
                   <p className="text-green-700 text-sm">
-                    <strong>Status:</strong> {testResults.data.status}
+                    <strong>Status:</strong>{" "}
+                    {(testResults.data as { status?: string })?.status}
                   </p>
                   <p className="text-green-700 text-sm">
-                    <strong>Timestamp:</strong> {testResults.data.timestamp}
+                    <strong>Timestamp:</strong>{" "}
+                    {(testResults.data as { timestamp?: string })?.timestamp}
                   </p>
                   <div className="mt-3 space-y-4">
                     {/* Pool Metadata Summary */}
@@ -855,19 +979,44 @@ export default function Home() {
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <p>
                           <strong>Pool Address:</strong>{" "}
-                          {testResults.data.completeInfo.metaData.poolAddress}
+                          {
+                            (testResults.data as {
+                              completeInfo?: {
+                                metaData?: { poolAddress?: string };
+                              };
+                            })?.completeInfo?.metaData?.poolAddress
+                          }
                         </p>
                         <p>
                           <strong>Trade Fee:</strong>{" "}
-                          {testResults.data.completeInfo.metaData.tradeFee}%
+                          {
+                            (testResults.data as {
+                              completeInfo?: {
+                                metaData?: { tradeFee?: number };
+                              };
+                            })?.completeInfo?.metaData?.tradeFee
+                          }
+                          %
                         </p>
                         <p>
                           <strong>Base Mint:</strong>{" "}
-                          {testResults.data.completeInfo.metaData.baseMint}
+                          {
+                            (testResults.data as {
+                              completeInfo?: {
+                                metaData?: { baseMint?: string };
+                              };
+                            })?.completeInfo?.metaData?.baseMint
+                          }
                         </p>
                         <p>
                           <strong>Quote Mint:</strong>{" "}
-                          {testResults.data.completeInfo.metaData.quoteMint}
+                          {
+                            (testResults.data as {
+                              completeInfo?: {
+                                metaData?: { quoteMint?: string };
+                              };
+                            })?.completeInfo?.metaData?.quoteMint
+                          }
                         </p>
                       </div>
                     </div>
@@ -880,21 +1029,31 @@ export default function Home() {
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <p>
                           <strong>Base Amount:</strong>{" "}
-                          {testResults.data.completeInfo.reserves.baseAmount.toFixed(
-                            6
-                          )}
+                          {(
+                            (testResults.data as {
+                              completeInfo?: {
+                                reserves?: { baseAmount?: number };
+                              };
+                            })?.completeInfo?.reserves?.baseAmount || 0
+                          ).toFixed(6)}
                         </p>
                         <p>
                           <strong>Quote Amount:</strong>{" "}
-                          {testResults.data.completeInfo.reserves.quoteAmount.toFixed(
-                            6
-                          )}
+                          {(
+                            (testResults.data as {
+                              completeInfo?: {
+                                reserves?: { quoteAmount?: number };
+                              };
+                            })?.completeInfo?.reserves?.quoteAmount || 0
+                          ).toFixed(6)}
                         </p>
                         <p>
                           <strong>Current Price:</strong>{" "}
-                          {testResults.data.completeInfo.currentMarketPrice.toFixed(
-                            6
-                          )}
+                          {(
+                            (testResults.data as {
+                              completeInfo?: { currentMarketPrice?: number };
+                            })?.completeInfo?.currentMarketPrice || 0
+                          ).toFixed(6)}
                         </p>
                       </div>
                     </div>
@@ -907,22 +1066,39 @@ export default function Home() {
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <p>
                           <strong>Active Bin:</strong>{" "}
-                          {testResults.data.completeInfo.activeBin}
+                          {
+                            (testResults.data as {
+                              completeInfo?: { activeBin?: number };
+                            })?.completeInfo?.activeBin
+                          }
                         </p>
                         <p>
                           <strong>Bin Step:</strong>{" "}
-                          {testResults.data.completeInfo.binStep}
+                          {
+                            (testResults.data as {
+                              completeInfo?: { binStep?: number };
+                            })?.completeInfo?.binStep
+                          }
                         </p>
                         <p>
                           <strong>Base Fee:</strong>{" "}
-                          {testResults.data.completeInfo.pairAccount.baseFeePct}
+                          {
+                            (testResults.data as {
+                              completeInfo?: {
+                                pairAccount?: { baseFeePct?: number };
+                              };
+                            })?.completeInfo?.pairAccount?.baseFeePct
+                          }
                           %
                         </p>
                         <p>
                           <strong>Quote Fee:</strong>{" "}
                           {
-                            testResults.data.completeInfo.pairAccount
-                              .quoteFeePct
+                            (testResults.data as {
+                              completeInfo?: {
+                                pairAccount?: { quoteFeePct?: number };
+                              };
+                            })?.completeInfo?.pairAccount?.quoteFeePct
                           }
                           %
                         </p>
@@ -938,29 +1114,39 @@ export default function Home() {
                         <p>
                           <strong>Array Index:</strong>{" "}
                           {
-                            testResults.data.completeInfo.binArrayInfo
-                              .binArrayIndex
+                            (testResults.data as {
+                              completeInfo?: {
+                                binArrayInfo?: { binArrayIndex?: number };
+                              };
+                            })?.completeInfo?.binArrayInfo?.binArrayIndex
                           }
                         </p>
                         <p>
                           <strong>Bin Count:</strong>{" "}
-                          {
-                            testResults.data.completeInfo.binArrayInfo.bins
-                              .length
-                          }
+                          {(testResults.data as {
+                            completeInfo?: {
+                              binArrayInfo?: { bins?: unknown[] };
+                            };
+                          })?.completeInfo?.binArrayInfo?.bins?.length || 0}
                         </p>
                         <p>
                           <strong>Lower Bin ID:</strong>{" "}
                           {
-                            testResults.data.completeInfo.binArrayInfo
-                              .lowerBinId
+                            (testResults.data as {
+                              completeInfo?: {
+                                binArrayInfo?: { lowerBinId?: number };
+                              };
+                            })?.completeInfo?.binArrayInfo?.lowerBinId
                           }
                         </p>
                         <p>
                           <strong>Upper Bin ID:</strong>{" "}
                           {
-                            testResults.data.completeInfo.binArrayInfo
-                              .upperBinId
+                            (testResults.data as {
+                              completeInfo?: {
+                                binArrayInfo?: { upperBinId?: number };
+                              };
+                            })?.completeInfo?.binArrayInfo?.upperBinId
                           }
                         </p>
                       </div>

@@ -119,24 +119,48 @@ export function BacktestingDashboard() {
       const mockResults: BacktestResult[] = [
         {
           strategy: "Spot",
+          startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+          endDate: new Date(),
+          initialValue: 1000,
+          finalValue: 1153,
+          totalReturn: 15.3,
           returns: 15.3,
           fees: 2.4,
           impermanentLoss: -3.2,
+          maxDrawdown: -8.5,
           sharpeRatio: 1.85,
+          trades: [],
+          dailyReturns: [0.5, -1.2, 2.1, 0.8, -0.3, 1.5, 0.9],
         },
         {
           strategy: "Curve",
+          startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+          endDate: new Date(),
+          initialValue: 1000,
+          finalValue: 1087,
+          totalReturn: 8.7,
           returns: 8.7,
           fees: 3.1,
           impermanentLoss: -1.1,
+          maxDrawdown: -4.2,
           sharpeRatio: 2.21,
+          trades: [],
+          dailyReturns: [0.3, 0.8, 1.2, -0.5, 0.6, 0.4, 0.9],
         },
         {
           strategy: "Bid-Ask",
+          startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+          endDate: new Date(),
+          initialValue: 1000,
+          finalValue: 1042,
+          totalReturn: 4.2,
           returns: 4.2,
           fees: 4.8,
           impermanentLoss: -0.3,
+          maxDrawdown: -2.1,
           sharpeRatio: 2.87,
+          trades: [],
+          dailyReturns: [0.2, 0.6, 0.8, -0.1, 0.3, 0.4, 0.2],
         },
       ];
 
@@ -146,7 +170,7 @@ export function BacktestingDashboard() {
         loading: false,
         hasResults: true,
       }));
-    } catch (error) {
+    } catch {
       setState((prev) => ({
         ...prev,
         loading: false,

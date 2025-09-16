@@ -26,7 +26,7 @@ export interface BacktestEngine {
   runBacktest(
     strategy: DLMMStrategy,
     priceData: PriceData[],
-    params: any
+    params: BacktestParams
   ): BacktestResult;
   simulateSpotStrategy(prices: PriceData[]): BacktestResult;
   simulateCurveStrategy(prices: PriceData[]): BacktestResult;
@@ -59,8 +59,8 @@ export interface DLMMPosition {
   lbPair: string; // Which trading pair (SOL/USDC, RAY/USDC, etc.)
   owner: string; // Who owns this position (users wallet address)
   liquidityShares: string; // How much liquidity you provided
-  rewardInfos: any[]; // Extra rewards (like mining rewards)
-  feeInfos: any[]; // Trading fees youve earned
+  rewardInfos: unknown[]; // Extra rewards (like mining rewards)
+  feeInfos: unknown[]; // Trading fees youve earned
   positionData: {
     totalXAmount: string; // Will calculate Amount of Token X (eg SOL)
     totalYAmount: string; // Will calculate Amount of Token Y (eg USDC)

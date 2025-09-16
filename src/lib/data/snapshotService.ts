@@ -1,11 +1,7 @@
 // import dlmm client and supabase client
 import { DLMMService, SAROS_USDC_PAIR_ADDRESS } from "@/lib/dlmm/client";
-import { supabaseAdmin, supabase } from "./supabaseClient";
-import {
-  PoolSnapshot,
-  BinSnapshot,
-  PoolSnapshotsTable,
-} from "@/types/snapshots";
+import { supabaseAdmin } from "./supabaseClient";
+import { PoolSnapshot, BinSnapshot } from "@/types/snapshots";
 
 // initialize the classes
 const dlmmService = new DLMMService();
@@ -128,30 +124,61 @@ function getTokenSymbol(mintAddress: string): string {
 
 // Transform the raw data into PoolSnapshot type
 function transformToPoolSnapshot(
-  poolMetadata: any,
-  surroundingBins: any[],
-  completePoolInfo: any,
+  poolMetadata: unknown,
+  surroundingBins: unknown[],
+  completePoolInfo: unknown,
   marketPrice: number,
   poolAddress: string
 ): PoolSnapshot {
   const timestamp = Date.now();
-  const activeBinPrice = completePoolInfo?.activeBinPrice || 0;
+  const activeBinPrice =
+    (completePoolInfo as { activeBinPrice?: number })?.activeBinPrice || 0;
   const priceDeviation =
     marketPrice > 0 ? Math.abs(activeBinPrice - marketPrice) / marketPrice : 0;
 
   // Get token symbols dynamically
-  const baseTokenSymbol = getTokenSymbol(poolMetadata?.baseMint || "");
-  const quoteTokenSymbol = getTokenSymbol(poolMetadata?.quoteMint || "");
+  const baseTokenSymbol = getTokenSymbol(
+    (poolMetadata as { baseMint?: string })?.baseMint || ""
+  );
+  const quoteTokenSymbol = getTokenSymbol(
+    (poolMetadata as { quoteMint?: string })?.quoteMint || ""
+  );
   const poolName = `${baseTokenSymbol}/${quoteTokenSymbol} Pool`;
 
   // Transform bin data to BinSnapshot format
-  const binData: BinSnapshot[] = surroundingBins.map((bin) => ({
-    bin_id: bin.binId,
-    liquidity_x: bin.baseAmount,
-    liquidity_y: bin.quoteAmount,
-    price: bin.price,
-    total_supply: bin.liquidity,
-  }));
+  const binData: BinSnapshot[] = surroundingBins.map((bin) => {
+    const binData = bin as {
+      binId: number;
+      baseAmount: number;
+      quoteAmount: number;
+      price: number;
+      liquidity: string;
+    };
+    return {
+      bin_id: binData.binId,
+      liquidity_x: binData.baseAmount,
+      liquidity_y: binData.quoteAmount,
+      price: binData.price,
+      total_supply: binData.liquidity,
+    };
+  });
+
+  const completePoolInfoData = completePoolInfo as {
+    pairAccount?: {
+      activeId?: number;
+      binStep?: number;
+      baseFeePct?: number;
+      protocolFeePct?: number;
+    };
+  };
+  const poolMetadataData = poolMetadata as {
+    baseReserve?: string;
+    quoteReserve?: string;
+    extra?: {
+      tokenBaseDecimal?: number;
+      tokenQuoteDecimal?: number;
+    };
+  };
 
   return {
     timestamp,
@@ -159,16 +186,16 @@ function transformToPoolSnapshot(
     pool_name: poolName,
 
     // Pool configuration
-    active_bin_id: completePoolInfo?.pairAccount?.activeId || 0,
-    bin_step: completePoolInfo?.pairAccount?.binStep || 0,
-    base_factor: completePoolInfo?.pairAccount?.baseFeePct || 0,
-    protocol_fee: completePoolInfo?.pairAccount?.protocolFeePct || 0,
+    active_bin_id: completePoolInfoData?.pairAccount?.activeId || 0,
+    bin_step: completePoolInfoData?.pairAccount?.binStep || 0,
+    base_factor: completePoolInfoData?.pairAccount?.baseFeePct || 0,
+    protocol_fee: completePoolInfoData?.pairAccount?.protocolFeePct || 0,
 
     // Reserves & state
-    reserve_x: poolMetadata?.baseReserve || "0",
-    reserve_x_decimal: poolMetadata?.extra?.tokenBaseDecimal || 6,
-    reserve_y: poolMetadata?.quoteReserve || "0",
-    reserve_y_decimal: poolMetadata?.extra?.tokenQuoteDecimal || 6,
+    reserve_x: poolMetadataData?.baseReserve || "0",
+    reserve_x_decimal: poolMetadataData?.extra?.tokenBaseDecimal || 6,
+    reserve_y: poolMetadataData?.quoteReserve || "0",
+    reserve_y_decimal: poolMetadataData?.extra?.tokenQuoteDecimal || 6,
     current_price: activeBinPrice,
 
     // Bin data
@@ -222,7 +249,7 @@ export async function saveSnapshotToDatabase(
 
     const { data, error } = await client
       .from("pool_snapshots")
-      .insert(insertData as any)
+      .insert(insertData)
       .select();
 
     if (error) {

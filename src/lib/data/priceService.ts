@@ -1,9 +1,4 @@
-import {
-  PriceData,
-  MarketCondition,
-  DataInterval,
-  PriceServiceOptions,
-} from "@/types/backtesting";
+// Unused imports removed to fix linting warnings
 
 enum Range {
   "1d" = "1d",

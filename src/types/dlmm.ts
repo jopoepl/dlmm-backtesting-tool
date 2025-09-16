@@ -59,7 +59,7 @@ export interface PoolPairAccount {
  */
 export interface BinArrayInfo {
   binArrayIndex: number;
-  bins: any[];
+  bins: unknown[];
   lowerBinId: number;
   upperBinId: number;
 }
@@ -86,8 +86,8 @@ export interface DLMMPosition {
   lbPair: string;
   owner: string;
   liquidityShares: string;
-  rewardInfos: any[];
-  feeInfos: any[];
+  rewardInfos: unknown[];
+  feeInfos: unknown[];
   positionData: {
     totalXAmount: string;
     totalYAmount: string;
@@ -124,6 +124,6 @@ export interface BacktestResult {
   impermanentLoss: number;
   maxDrawdown: number;
   sharpeRatio: number;
-  trades: any[];
+  trades: unknown[];
   dailyReturns: number[];
 }

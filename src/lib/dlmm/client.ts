@@ -2,7 +2,6 @@ import { PublicKey } from "@solana/web3.js";
 import { LiquidityBookServices, MODE } from "@saros-finance/dlmm-sdk";
 import BN from "bn.js";
 import {
-  DLMMPosition,
   PoolMetadata,
   PoolReserves,
   PoolPairAccount,
@@ -320,7 +319,7 @@ export class DLMMService {
             `Processing array ${arrayIndex}, lowerBinId: ${lowerBinId}, bins count: ${arrayInfo.bins.length}`
           );
 
-          arrayInfo.bins.forEach((bin: any, index: number) => {
+          arrayInfo.bins.forEach((bin: unknown, index: number) => {
             const binId = lowerBinId + index;
 
             // Only include bins within our range
@@ -338,9 +337,14 @@ export class DLMMService {
 
               // Use the correct field names from the SDK response
               // Keep as BN for proper arithmetic operations
-              const baseAmountBN = bin.reserveX || new BN(0);
-              const quoteAmountBN = bin.reserveY || new BN(0);
-              const liquidityBN = bin.totalSupply || new BN(0);
+              const binData = bin as {
+                reserveX?: BN;
+                reserveY?: BN;
+                totalSupply?: BN;
+              };
+              const baseAmountBN = binData.reserveX || new BN(0);
+              const quoteAmountBN = binData.reserveY || new BN(0);
+              const liquidityBN = binData.totalSupply || new BN(0);
 
               // Only add bins that have some liquidity
               if (
@@ -446,7 +450,7 @@ export class DLMMService {
         `Bin range: ${startBin} to ${endBin}, processing ${arrayInfo.bins.length} bins`
       );
 
-      arrayInfo.bins.forEach((bin: any, index: number) => {
+      arrayInfo.bins.forEach((bin: unknown, index: number) => {
         const binId = lowerBinId + index;
 
         // Only include bins within our range
@@ -461,9 +465,14 @@ export class DLMMService {
 
           // Extract liquidity data from bin - using correct field names
           // Keep as BN for proper arithmetic operations
-          const baseAmountBN = bin.reserveX || new BN(0);
-          const quoteAmountBN = bin.reserveY || new BN(0);
-          const liquidityBN = bin.totalSupply || new BN(0);
+          const binData = bin as {
+            reserveX?: BN;
+            reserveY?: BN;
+            totalSupply?: BN;
+          };
+          const baseAmountBN = binData.reserveX || new BN(0);
+          const quoteAmountBN = binData.reserveY || new BN(0);
+          const liquidityBN = binData.totalSupply || new BN(0);
 
           // Only add bins that have some liquidity
           if (

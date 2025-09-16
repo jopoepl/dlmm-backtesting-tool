@@ -6,20 +6,13 @@ import {
   checkTablesExist,
   getSampleData,
 } from "@/lib/data/supabaseClient";
-import {
-  Database,
-  Zap,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  Eye,
-} from "lucide-react";
+import { Database, Zap, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 
 interface TestResult {
   connection?: {
     success: boolean;
     error?: string;
-    details?: any;
+    details?: unknown;
   };
   tables?: {
     pool_snapshots: boolean;
@@ -35,8 +28,8 @@ interface TestResult {
   sampleData?: {
     success: boolean;
     data?: {
-      pool_snapshots?: any[];
-      bin_snapshots?: any[];
+      pool_snapshots?: unknown[];
+      bin_snapshots?: unknown[];
     };
     error?: string;
   };
@@ -155,10 +148,15 @@ export function DatabaseTester() {
                 <p className="text-sm text-green-600 mb-2">
                   ✅ Successfully connected to Supabase
                 </p>
-                {results.connection.details?.sampleData && (
+                {(results.connection.details as { sampleData?: unknown[] })
+                  ?.sampleData && (
                   <p className="text-xs text-gray-600">
                     Sample data found:{" "}
-                    {results.connection.details.sampleData.length} records
+                    {
+                      (results.connection.details as { sampleData: unknown[] })
+                        .sampleData.length
+                    }{" "}
+                    records
                   </p>
                 )}
               </div>
@@ -347,7 +345,7 @@ export function DatabaseTester() {
           <p>1. Create a Supabase project at supabase.com</p>
           <p>2. Copy your project URL and API keys to .env.local</p>
           <p>3. Run the SQL schema in your Supabase SQL Editor</p>
-          <p>4. Click "Run Database Tests" to verify setup</p>
+          <p>4. Click &quot;Run Database Tests&quot; to verify setup</p>
         </div>
       </div>
     </div>

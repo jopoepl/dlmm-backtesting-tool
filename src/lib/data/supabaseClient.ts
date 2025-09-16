@@ -50,7 +50,7 @@ console.log("🔍 Supabase admin client:", supabaseAdmin);
 export async function testDatabaseConnection(): Promise<{
   success: boolean;
   error?: string;
-  details?: any;
+  details?: unknown;
 }> {
   try {
     console.log("🔍 Testing Supabase connection...");
@@ -107,17 +107,13 @@ export async function checkTablesExist(): Promise<{
     console.log("🔍 Checking table existence...");
 
     // Check pool_snapshots table
-    const {
-      data: poolData,
-      error: poolError,
-      count: poolCount,
-    } = await supabase
+    const { error: poolError, count: poolCount } = await supabase
       .from("pool_snapshots")
       .select("id", { count: "exact" })
       .limit(1);
 
     // Check bin_snapshots table
-    const { data: binData, error: binError, count: binCount } = await supabase
+    const { error: binError, count: binCount } = await supabase
       .from("bin_snapshots")
       .select("id", { count: "exact" })
       .limit(1);
@@ -166,8 +162,8 @@ export async function checkTablesExist(): Promise<{
 export async function getSampleData(): Promise<{
   success: boolean;
   data?: {
-    pool_snapshots?: any[];
-    bin_snapshots?: any[];
+    pool_snapshots?: unknown[];
+    bin_snapshots?: unknown[];
   };
   error?: string;
 }> {
@@ -220,7 +216,13 @@ export async function getSampleData(): Promise<{
 
 // Utility function for error handling
 export function isSupabaseError(
-  error: any
+  error: unknown
 ): error is { message: string; code?: string } {
-  return error && typeof error.message === "string";
+  return (
+    error &&
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof (error as { message: unknown }).message === "string"
+  );
 }

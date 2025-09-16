@@ -1,29 +1,26 @@
 "use client";
 
-import { useWallet, useConnection } from "@solana/wallet-adapter-react";
-import { useEffect, useState } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { useEffect, useState, useCallback } from "react";
 import { DLMMPosition } from "@/types/dlmm";
-import { DLMMService } from "@/lib/dlmm/client";
-import { Wallet, TrendingUp, TrendingDown } from "lucide-react";
+import { Wallet, TrendingUp } from "lucide-react";
 
 export function PositionsList() {
   const { publicKey, connected } = useWallet();
-  const { connection } = useConnection();
   const [positions, setPositions] = useState<DLMMPosition[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchPositions = async () => {
+  const fetchPositions = useCallback(async () => {
     if (!publicKey || !connected) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const dlmmService = new DLMMService();
       // Note: getUserPositions method is commented out in DLMMService
       // const userPositions = await dlmmService.getUserPositions(publicKey);
-      const userPositions: any[] = []; // Placeholder until method is implemented
+      const userPositions: DLMMPosition[] = []; // Placeholder until method is implemented
       setPositions(userPositions);
     } catch (err) {
       setError("Failed to fetch positions");
@@ -31,11 +28,11 @@ export function PositionsList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [publicKey, connected]);
 
   useEffect(() => {
     fetchPositions();
-  }, [publicKey, connected]);
+  }, [publicKey, connected, fetchPositions]);
 
   if (!connected) {
     return (
@@ -117,7 +114,11 @@ export function PositionsList() {
                 <p className="text-gray-500">Fees Earned (SAROS)</p>
                 <p className="text-green-600 font-medium">
                   {position.feeInfos[0]
-                    ? (parseFloat(position.feeInfos[0].feeX) / 1e9).toFixed(3)
+                    ? (
+                        parseFloat(
+                          (position.feeInfos[0] as { feeX: string }).feeX
+                        ) / 1e9
+                      ).toFixed(3)
                     : "0.000"}
                 </p>
               </div>
@@ -125,7 +126,11 @@ export function PositionsList() {
                 <p className="text-gray-500">Fees Earned (USDC)</p>
                 <p className="text-green-600 font-medium">
                   {position.feeInfos[0]
-                    ? (parseFloat(position.feeInfos[0].feeY) / 1e6).toFixed(2)
+                    ? (
+                        parseFloat(
+                          (position.feeInfos[0] as { feeY: string }).feeY
+                        ) / 1e6
+                      ).toFixed(2)
                     : "0.00"}
                 </p>
               </div>

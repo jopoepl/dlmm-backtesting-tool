@@ -120,18 +120,19 @@ export class PriceServiceTemplate {
     }
 
     // Transform CoinGecko data to our format
-    return this.transformCoinGeckoData(data, interval);
+    return this.transformCoinGeckoData(data);
   }
 
   /**
    * Transform CoinGecko response to our PriceData format
    */
-  private transformCoinGeckoData(
-    data: any,
-    interval: DataInterval
-  ): PriceData[] {
-    const prices = data.prices || [];
-    const volumes = data.total_volumes || [];
+  private transformCoinGeckoData(data: unknown): PriceData[] {
+    const dataObj = data as {
+      prices?: [number, number][];
+      total_volumes?: [number, number][];
+    };
+    const prices = dataObj.prices || [];
+    const volumes = dataObj.total_volumes || [];
 
     return prices.map((pricePoint: [number, number], index: number) => {
       const [timestamp, price] = pricePoint;
@@ -169,7 +170,7 @@ export class PriceServiceTemplate {
           this.validCoinId = coinId;
           return coinId;
         }
-      } catch (error) {
+      } catch {
         console.log(`❌ ${coinId} not found, trying next...`);
       }
     }
