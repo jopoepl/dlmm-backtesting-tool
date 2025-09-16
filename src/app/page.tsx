@@ -1,103 +1,986 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import { WalletButton } from "@/components/wallet/WalletButton";
+import { BacktestingDashboard } from "@/components/backtesting/BacktestingDashboard";
+import { PriceService } from "@/lib/data/priceService";
+import { Modal } from "@/components/ui/Modal";
+import { DatabaseTester } from "@/components/admin/DatabaseTester";
+import {
+  testDatabaseConnection,
+  checkTablesExist,
+} from "@/lib/data/supabaseClient";
+import {
+  collectPoolSnapshot,
+  saveSnapshotToDatabase,
+} from "@/lib/data/snapshotService";
+import { DLMMService, SAROS_USDC_PAIR_ADDRESS } from "@/lib/dlmm/client";
+import { Connection } from "@solana/web3.js";
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const priceService = new PriceService();
+  const [testResults, setTestResults] = useState<{
+    type:
+      | "api"
+      | "database"
+      | "snapshot"
+      | "dlmm"
+      | "dlmm-reserves"
+      | "dlmm-bins"
+      | "dlmm-bins-advanced"
+      | "dlmm-complete"
+      | null;
+    data: any;
+    error: string | null;
+    loading: boolean;
+  }>({
+    type: null,
+    data: null,
+    error: null,
+    loading: false,
+  });
+  const [showTestModal, setShowTestModal] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const testCoinGeckoAPI = async () => {
+    setTestResults({ type: "api", data: null, error: null, loading: true });
+    setShowTestModal(true);
+
+    try {
+      const data = await priceService.getPriceData();
+      setTestResults({ type: "api", data, error: null, loading: false });
+    } catch (error) {
+      setTestResults({
+        type: "api",
+        data: null,
+        error:
+          error instanceof Error ? error.message : "Unknown error occurred",
+        loading: false,
+      });
+    }
+  };
+
+  const testDatabase = async () => {
+    setTestResults({
+      type: "snapshot",
+      data: null,
+      error: null,
+      loading: true,
+    });
+    setShowTestModal(true);
+
+    try {
+      console.log("🔍 Testing database connection and collecting snapshot...");
+
+      // Test actual database connection first
+      const connectionResult = await testDatabaseConnection();
+
+      if (!connectionResult.success) {
+        setTestResults({
+          type: "snapshot",
+          data: null,
+          error: connectionResult.error || "Database connection failed",
+          loading: false,
+        });
+        return;
+      }
+
+      console.log("✅ Database connected, collecting pool snapshot...");
+
+      // Collect pool snapshot
+      const snapshot = await collectPoolSnapshot(SAROS_USDC_PAIR_ADDRESS);
+      console.log("📊 Snapshot collected:", snapshot);
+
+      // Save snapshot to database
+      console.log("💾 Saving snapshot to database...");
+      const saveResult = await saveSnapshotToDatabase(snapshot);
+
+      if (!saveResult) {
+        setTestResults({
+          type: "snapshot",
+          data: null,
+          error: "Failed to save snapshot to database",
+          loading: false,
+        });
+        return;
+      }
+
+      // Check tables to get updated counts
+      const tablesResult = await checkTablesExist();
+
+      setTestResults({
+        type: "snapshot",
+        data: {
+          status: "success",
+          snapshot: {
+            pool_address: snapshot.pool_address,
+            pool_name: snapshot.pool_name,
+            timestamp: new Date(snapshot.timestamp).toISOString(),
+            current_price: snapshot.current_price,
+            market_price: snapshot.market_price,
+            price_deviation: snapshot.price_deviation,
+            bin_count: snapshot.bin_data.length,
+            active_bin_id: snapshot.active_bin_id,
+          },
+          database: {
+            poolRecords: tablesResult.details?.pool_snapshots_count || 0,
+            binRecords: tablesResult.details?.bin_snapshots_count || 0,
+          },
+          message: "Snapshot collected and saved successfully!",
+        },
+        error: null,
+        loading: false,
+      });
+    } catch (error) {
+      console.error("Snapshot test error:", error);
+      setTestResults({
+        type: "snapshot",
+        data: null,
+        error:
+          error instanceof Error ? error.message : "Snapshot collection failed",
+        loading: false,
+      });
+    }
+  };
+
+  const testDLMMPoolInfo = async () => {
+    setTestResults({
+      type: "dlmm",
+      data: null,
+      error: null,
+      loading: true,
+    });
+    setShowTestModal(true);
+
+    try {
+      console.log("🔍 Testing DLMM pool metadata...");
+      const dlmmService = new DLMMService();
+
+      // Test pool metadata fetch
+      const poolMetadata = await dlmmService.fetchPoolMetadata(
+        SAROS_USDC_PAIR_ADDRESS
+      );
+
+      if (!poolMetadata) {
+        setTestResults({
+          type: "dlmm",
+          data: null,
+          error: "Failed to fetch pool metadata - returned null",
+          loading: false,
+        });
+        return;
+      }
+
+      setTestResults({
+        type: "dlmm",
+        data: {
+          status: "success",
+          poolMetadata: poolMetadata,
+          timestamp: new Date().toISOString(),
+        },
+        error: null,
+        loading: false,
+      });
+    } catch (error) {
+      console.error("DLMM test error:", error);
+      setTestResults({
+        type: "dlmm",
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "DLMM pool metadata test failed",
+        loading: false,
+      });
+    }
+  };
+
+  const testDLMMReserves = async () => {
+    setTestResults({
+      type: "dlmm-reserves",
+      data: null,
+      error: null,
+      loading: true,
+    });
+    setShowTestModal(true);
+
+    try {
+      console.log("🔍 Testing DLMM pool reserves...");
+      const dlmmService = new DLMMService();
+
+      const reserves = await dlmmService.getPoolReserves(
+        SAROS_USDC_PAIR_ADDRESS
+      );
+
+      if (!reserves) {
+        setTestResults({
+          type: "dlmm-reserves",
+          data: null,
+          error: "Failed to fetch pool reserves - returned null",
+          loading: false,
+        });
+        return;
+      }
+
+      setTestResults({
+        type: "dlmm-reserves",
+        data: {
+          status: "success",
+          reserves: reserves,
+          timestamp: new Date().toISOString(),
+        },
+        error: null,
+        loading: false,
+      });
+    } catch (error) {
+      console.error("DLMM reserves test error:", error);
+      setTestResults({
+        type: "dlmm-reserves",
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "DLMM pool reserves test failed",
+        loading: false,
+      });
+    }
+  };
+
+  const testDLMMBins = async () => {
+    setTestResults({
+      type: "dlmm-bins",
+      data: null,
+      error: null,
+      loading: true,
+    });
+    setShowTestModal(true);
+
+    try {
+      console.log("🔍 Testing DLMM surrounding bins...");
+      const dlmmService = new DLMMService();
+
+      const bins = await dlmmService.getSurroundingBins(
+        SAROS_USDC_PAIR_ADDRESS,
+        10
+      );
+
+      setTestResults({
+        type: "dlmm-bins",
+        data: {
+          status: "success",
+          bins: bins,
+          binCount: bins.length,
+          timestamp: new Date().toISOString(),
+        },
+        error: null,
+        loading: false,
+      });
+    } catch (error) {
+      console.error("DLMM bins test error:", error);
+      setTestResults({
+        type: "dlmm-bins",
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "DLMM surrounding bins test failed",
+        loading: false,
+      });
+    }
+  };
+
+  const testDLMMBinsSimple = async () => {
+    setTestResults({
+      type: "dlmm-bins-advanced",
+      data: null,
+      error: null,
+      loading: true,
+    });
+    setShowTestModal(true);
+
+    try {
+      console.log("🔍 Testing DLMM surrounding bins (simple method)...");
+      const dlmmService = new DLMMService();
+
+      const bins = await dlmmService.getSurroundingBinsSimple(
+        SAROS_USDC_PAIR_ADDRESS,
+        10
+      );
+
+      setTestResults({
+        type: "dlmm-bins-advanced",
+        data: {
+          status: "success",
+          bins: bins,
+          binCount: bins.length,
+          method: "getBinArrayInfo (simple - active array only)",
+          timestamp: new Date().toISOString(),
+        },
+        error: null,
+        loading: false,
+      });
+    } catch (error) {
+      console.error("DLMM bins simple test error:", error);
+      setTestResults({
+        type: "dlmm-bins-advanced",
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "DLMM surrounding bins (simple) test failed",
+        loading: false,
+      });
+    }
+  };
+
+  const testDLMMComplete = async () => {
+    setTestResults({
+      type: "dlmm-complete",
+      data: null,
+      error: null,
+      loading: true,
+    });
+    setShowTestModal(true);
+
+    try {
+      console.log("🔍 Testing complete DLMM pool info...");
+      const dlmmService = new DLMMService();
+
+      const completeInfo = await dlmmService.getCompletePoolInfo(
+        SAROS_USDC_PAIR_ADDRESS
+      );
+
+      if (!completeInfo) {
+        setTestResults({
+          type: "dlmm-complete",
+          data: null,
+          error: "Failed to fetch complete pool info - returned null",
+          loading: false,
+        });
+        return;
+      }
+
+      setTestResults({
+        type: "dlmm-complete",
+        data: {
+          status: "success",
+          completeInfo: completeInfo,
+          timestamp: new Date().toISOString(),
+        },
+        error: null,
+        loading: false,
+      });
+    } catch (error) {
+      console.error("DLMM complete test error:", error);
+      setTestResults({
+        type: "dlmm-complete",
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "DLMM complete pool info test failed",
+        loading: false,
+      });
+    }
+  };
+
+  const closeTestModal = () => {
+    setShowTestModal(false);
+    setTestResults({ type: null, data: null, error: null, loading: false });
+  };
+
+  return (
+    <main className="min-h-screen bg-gray-50">
+      <nav className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-4">
+              <h1 className="text-xl font-bold text-gray-900">
+                DLMM Analytics Dashboard
+              </h1>
+              {process.env.NEXT_PUBLIC_NODE_ENV === "development" && (
+                <>
+                  <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">
+                    Demo Mode
+                  </span>
+                  <button
+                    onClick={testCoinGeckoAPI}
+                    className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
+                  >
+                    Test CoinGecko API
+                  </button>
+                  <button
+                    onClick={testDatabase}
+                    className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600"
+                  >
+                    Collect & Save Snapshot
+                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={testDLMMPoolInfo}
+                      className="bg-purple-500 text-white px-3 py-1 rounded text-sm hover:bg-purple-600"
+                    >
+                      Pool Metadata
+                    </button>
+                    <button
+                      onClick={testDLMMReserves}
+                      className="bg-indigo-500 text-white px-3 py-1 rounded text-sm hover:bg-indigo-600"
+                    >
+                      Pool Reserves
+                    </button>
+                    <button
+                      onClick={testDLMMBins}
+                      className="bg-pink-500 text-white px-3 py-1 rounded text-sm hover:bg-pink-600"
+                    >
+                      Surrounding Bins
+                    </button>
+                    <button
+                      onClick={testDLMMBinsSimple}
+                      className="bg-rose-500 text-white px-3 py-1 rounded text-sm hover:bg-rose-600"
+                    >
+                      Bins (Simple)
+                    </button>
+                    <button
+                      onClick={testDLMMComplete}
+                      className="bg-violet-500 text-white px-3 py-1 rounded text-sm hover:bg-violet-600"
+                    >
+                      Complete Info
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+            <WalletButton />
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      </nav>
+
+      <div className="max-w-7xl mx-auto">
+        {/* Main Backtesting Dashboard */}
+        <BacktestingDashboard />
+
+        {/* Positions List (for later) */}
+        <div className="px-4 sm:px-6 lg:px-8 py-8 border-t">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">
+            Your Current Positions
+          </h2>
+          {/* <PositionsList /> */}
+        </div>
+      </div>
+
+      {/* Test Results Modal */}
+      <Modal
+        isOpen={showTestModal}
+        onCloseAction={closeTestModal}
+        title={`Test ${
+          testResults.type === "api"
+            ? "CoinGecko API"
+            : testResults.type === "database"
+            ? "Database"
+            : testResults.type === "snapshot"
+            ? "Snapshot Collection & Save"
+            : testResults.type === "dlmm"
+            ? "DLMM Pool Metadata"
+            : testResults.type === "dlmm-reserves"
+            ? "DLMM Pool Reserves"
+            : testResults.type === "dlmm-bins"
+            ? "DLMM Surrounding Bins"
+            : testResults.type === "dlmm-bins-advanced"
+            ? "DLMM Surrounding Bins (Advanced)"
+            : "DLMM Complete Info"
+        } Results`}
+        size="lg"
+      >
+        <div className="space-y-4">
+          {testResults.loading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <span className="ml-3 text-gray-600">
+                {testResults.type === "api"
+                  ? "Testing API connection..."
+                  : testResults.type === "database"
+                  ? "Testing database connection..."
+                  : testResults.type === "snapshot"
+                  ? "Collecting snapshot and saving to database..."
+                  : testResults.type === "dlmm"
+                  ? "Testing DLMM pool metadata..."
+                  : testResults.type === "dlmm-reserves"
+                  ? "Testing DLMM pool reserves..."
+                  : testResults.type === "dlmm-bins"
+                  ? "Testing DLMM surrounding bins..."
+                  : testResults.type === "dlmm-bins-advanced"
+                  ? "Testing DLMM surrounding bins (advanced)..."
+                  : "Testing DLMM complete info..."}
+              </span>
+            </div>
+          ) : testResults.error ? (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <div className="text-red-400 mr-3">❌</div>
+                <div>
+                  <h4 className="text-red-800 font-medium">Test Failed</h4>
+                  <p className="text-red-700 text-sm mt-1">
+                    {testResults.error}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : testResults.data ? (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center mb-3">
+                <div className="text-green-400 mr-3">✅</div>
+                <h4 className="text-green-800 font-medium">Test Successful</h4>
+              </div>
+
+              {testResults.type === "api" ? (
+                <div className="space-y-2">
+                  <p className="text-green-700 text-sm">
+                    <strong>API Response:</strong>{" "}
+                    {JSON.stringify(testResults.data, null, 2)}
+                  </p>
+                </div>
+              ) : testResults.type === "database" ? (
+                <div className="space-y-2">
+                  <p className="text-green-700 text-sm">
+                    <strong>Status:</strong> {testResults.data.status}
+                  </p>
+                  <p className="text-green-700 text-sm">
+                    <strong>Connection:</strong>{" "}
+                    {testResults.data.connectionTime}
+                  </p>
+                  <p className="text-green-700 text-sm">
+                    <strong>Available Tables:</strong>{" "}
+                    {testResults.data.tables.length > 0
+                      ? testResults.data.tables.join(", ")
+                      : "No tables found"}
+                  </p>
+                  {testResults.data.poolRecords !== undefined && (
+                    <p className="text-green-700 text-sm">
+                      <strong>Pool Records:</strong>{" "}
+                      {testResults.data.poolRecords}
+                    </p>
+                  )}
+                  {testResults.data.binRecords !== undefined && (
+                    <p className="text-green-700 text-sm">
+                      <strong>Bin Records:</strong>{" "}
+                      {testResults.data.binRecords}
+                    </p>
+                  )}
+                </div>
+              ) : testResults.type === "snapshot" ? (
+                <div className="space-y-4">
+                  <div className="bg-green-100 border border-green-300 rounded-lg p-3">
+                    <p className="text-green-800 font-medium text-sm mb-2">
+                      ✅ {testResults.data.message}
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-green-800 text-sm">
+                      Snapshot Details:
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="font-medium text-gray-700">
+                          Pool Address:
+                        </p>
+                        <p className="text-blue-600 font-mono text-xs">
+                          {testResults.data.snapshot.pool_address}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-700">Pool Name:</p>
+                        <p className="text-gray-600">
+                          {testResults.data.snapshot.pool_name}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-700">Timestamp:</p>
+                        <p className="text-gray-600">
+                          {testResults.data.snapshot.timestamp}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-700">
+                          Active Bin ID:
+                        </p>
+                        <p className="text-blue-600">
+                          {testResults.data.snapshot.active_bin_id}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-700">
+                          Current Price:
+                        </p>
+                        <p className="text-green-600">
+                          {testResults.data.snapshot.current_price.toFixed(6)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-700">
+                          Market Price:
+                        </p>
+                        <p className="text-blue-600">
+                          {testResults.data.snapshot.market_price.toFixed(6)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-700">
+                          Price Deviation:
+                        </p>
+                        <p className="text-orange-600">
+                          {(
+                            testResults.data.snapshot.price_deviation * 100
+                          ).toFixed(2)}
+                          %
+                        </p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-700">Bin Count:</p>
+                        <p className="text-purple-600">
+                          {testResults.data.snapshot.bin_count}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-green-800 text-sm">
+                      Database Status:
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="font-medium text-gray-700">
+                          Pool Records:
+                        </p>
+                        <p className="text-green-600">
+                          {testResults.data.database.poolRecords}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-700">
+                          Bin Records:
+                        </p>
+                        <p className="text-green-600">
+                          {testResults.data.database.binRecords}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : testResults.type === "dlmm" ? (
+                <div className="space-y-2">
+                  <p className="text-green-700 text-sm">
+                    <strong>Status:</strong> {testResults.data.status}
+                  </p>
+                  <p className="text-green-700 text-sm">
+                    <strong>Timestamp:</strong> {testResults.data.timestamp}
+                  </p>
+                  <div className="mt-3">
+                    <p className="text-green-700 text-sm font-medium mb-2">
+                      <strong>Pool Metadata:</strong>
+                    </p>
+                    <div className="bg-gray-50 border rounded-lg p-3 max-h-96 overflow-y-auto">
+                      <pre className="text-xs text-gray-700 whitespace-pre-wrap">
+                        {JSON.stringify(testResults.data.poolMetadata, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                </div>
+              ) : testResults.type === "dlmm-reserves" ? (
+                <div className="space-y-2">
+                  <p className="text-green-700 text-sm">
+                    <strong>Status:</strong> {testResults.data.status}
+                  </p>
+                  <p className="text-green-700 text-sm">
+                    <strong>Timestamp:</strong> {testResults.data.timestamp}
+                  </p>
+                  <div className="mt-3">
+                    <p className="text-green-700 text-sm font-medium mb-2">
+                      <strong>Pool Reserves:</strong>
+                    </p>
+                    <div className="bg-gray-50 border rounded-lg p-3">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <p className="font-medium text-gray-800">
+                            Base Amount:
+                          </p>
+                          <p className="text-blue-600">
+                            {testResults.data.reserves.baseAmount.toFixed(6)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-800">
+                            Quote Amount:
+                          </p>
+                          <p className="text-blue-600">
+                            {testResults.data.reserves.quoteAmount.toFixed(6)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-800">
+                            Base Decimals:
+                          </p>
+                          <p className="text-gray-600">
+                            {testResults.data.reserves.baseDecimals}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-800">
+                            Quote Decimals:
+                          </p>
+                          <p className="text-gray-600">
+                            {testResults.data.reserves.quoteDecimals}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : testResults.type === "dlmm-bins" ? (
+                <div className="space-y-2">
+                  <p className="text-green-700 text-sm">
+                    <strong>Status:</strong> {testResults.data.status}
+                  </p>
+                  <p className="text-green-700 text-sm">
+                    <strong>Bin Count:</strong> {testResults.data.binCount}
+                  </p>
+                  <p className="text-green-700 text-sm">
+                    <strong>Method:</strong> getBinArrayInfo
+                  </p>
+                  <p className="text-green-700 text-sm">
+                    <strong>Timestamp:</strong> {testResults.data.timestamp}
+                  </p>
+                  <div className="mt-3">
+                    <p className="text-green-700 text-sm font-medium mb-2">
+                      <strong>Surrounding Bins:</strong>
+                    </p>
+                    <div className="bg-gray-50 border rounded-lg p-3 max-h-96 overflow-y-auto">
+                      <div className="space-y-2">
+                        {testResults.data.bins
+                          .slice(0, 20)
+                          .map((bin: any, index: number) => (
+                            <div
+                              key={index}
+                              className="flex justify-between items-center p-2 bg-white rounded border"
+                            >
+                              <span className="font-mono text-sm">
+                                Bin {bin.binId}
+                              </span>
+                              <span className="text-sm">
+                                Price: {bin.price.toFixed(6)}
+                              </span>
+                              <span className="text-sm text-gray-600">
+                                Base: {bin.baseAmount}
+                              </span>
+                              <span className="text-sm text-gray-600">
+                                Quote: {bin.quoteAmount}
+                              </span>
+                            </div>
+                          ))}
+                        {testResults.data.bins.length > 20 && (
+                          <p className="text-gray-500 text-sm text-center">
+                            ... and {testResults.data.bins.length - 20} more
+                            bins
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : testResults.type === "dlmm-bins-advanced" ? (
+                <div className="space-y-2">
+                  <p className="text-green-700 text-sm">
+                    <strong>Status:</strong> {testResults.data.status}
+                  </p>
+                  <p className="text-green-700 text-sm">
+                    <strong>Bin Count:</strong> {testResults.data.binCount}
+                  </p>
+                  <p className="text-green-700 text-sm">
+                    <strong>Method:</strong> {testResults.data.method}
+                  </p>
+                  <p className="text-green-700 text-sm">
+                    <strong>Timestamp:</strong> {testResults.data.timestamp}
+                  </p>
+                  <div className="mt-3">
+                    <p className="text-green-700 text-sm font-medium mb-2">
+                      <strong>Surrounding Bins (Advanced):</strong>
+                    </p>
+                    <div className="bg-gray-50 border rounded-lg p-3 max-h-96 overflow-y-auto">
+                      <div className="space-y-2">
+                        {testResults.data.bins
+                          .slice(0, 20)
+                          .map((bin: any, index: number) => (
+                            <div
+                              key={index}
+                              className="flex justify-between items-center p-2 bg-white rounded border"
+                            >
+                              <span className="font-mono text-sm">
+                                Bin {bin.binId}
+                              </span>
+                              <span className="text-sm">
+                                Price: {bin.price.toFixed(6)}
+                              </span>
+                              <span className="text-sm text-gray-600">
+                                Base: {bin.baseAmount}
+                              </span>
+                              <span className="text-sm text-gray-600">
+                                Quote: {bin.quoteAmount}
+                              </span>
+                            </div>
+                          ))}
+                        {testResults.data.bins.length > 20 && (
+                          <p className="text-gray-500 text-sm text-center">
+                            ... and {testResults.data.bins.length - 20} more
+                            bins
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : testResults.type === "dlmm-complete" ? (
+                <div className="space-y-2">
+                  <p className="text-green-700 text-sm">
+                    <strong>Status:</strong> {testResults.data.status}
+                  </p>
+                  <p className="text-green-700 text-sm">
+                    <strong>Timestamp:</strong> {testResults.data.timestamp}
+                  </p>
+                  <div className="mt-3 space-y-4">
+                    {/* Pool Metadata Summary */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <h4 className="font-medium text-blue-800 mb-2">
+                        Pool Metadata
+                      </h4>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <p>
+                          <strong>Pool Address:</strong>{" "}
+                          {testResults.data.completeInfo.metaData.poolAddress}
+                        </p>
+                        <p>
+                          <strong>Trade Fee:</strong>{" "}
+                          {testResults.data.completeInfo.metaData.tradeFee}%
+                        </p>
+                        <p>
+                          <strong>Base Mint:</strong>{" "}
+                          {testResults.data.completeInfo.metaData.baseMint}
+                        </p>
+                        <p>
+                          <strong>Quote Mint:</strong>{" "}
+                          {testResults.data.completeInfo.metaData.quoteMint}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Reserves Summary */}
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <h4 className="font-medium text-green-800 mb-2">
+                        Pool Reserves
+                      </h4>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <p>
+                          <strong>Base Amount:</strong>{" "}
+                          {testResults.data.completeInfo.reserves.baseAmount.toFixed(
+                            6
+                          )}
+                        </p>
+                        <p>
+                          <strong>Quote Amount:</strong>{" "}
+                          {testResults.data.completeInfo.reserves.quoteAmount.toFixed(
+                            6
+                          )}
+                        </p>
+                        <p>
+                          <strong>Current Price:</strong>{" "}
+                          {testResults.data.completeInfo.currentMarketPrice.toFixed(
+                            6
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Pair Account Summary */}
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                      <h4 className="font-medium text-purple-800 mb-2">
+                        Pair Account
+                      </h4>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <p>
+                          <strong>Active Bin:</strong>{" "}
+                          {testResults.data.completeInfo.activeBin}
+                        </p>
+                        <p>
+                          <strong>Bin Step:</strong>{" "}
+                          {testResults.data.completeInfo.binStep}
+                        </p>
+                        <p>
+                          <strong>Base Fee:</strong>{" "}
+                          {testResults.data.completeInfo.pairAccount.baseFeePct}
+                          %
+                        </p>
+                        <p>
+                          <strong>Quote Fee:</strong>{" "}
+                          {
+                            testResults.data.completeInfo.pairAccount
+                              .quoteFeePct
+                          }
+                          %
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Bin Array Info */}
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                      <h4 className="font-medium text-orange-800 mb-2">
+                        Bin Array Info
+                      </h4>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <p>
+                          <strong>Array Index:</strong>{" "}
+                          {
+                            testResults.data.completeInfo.binArrayInfo
+                              .binArrayIndex
+                          }
+                        </p>
+                        <p>
+                          <strong>Bin Count:</strong>{" "}
+                          {
+                            testResults.data.completeInfo.binArrayInfo.bins
+                              .length
+                          }
+                        </p>
+                        <p>
+                          <strong>Lower Bin ID:</strong>{" "}
+                          {
+                            testResults.data.completeInfo.binArrayInfo
+                              .lowerBinId
+                          }
+                        </p>
+                        <p>
+                          <strong>Upper Bin ID:</strong>{" "}
+                          {
+                            testResults.data.completeInfo.binArrayInfo
+                              .upperBinId
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="flex justify-end pt-4 border-t">
+            <button
+              onClick={closeTestModal}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </Modal>
+    </main>
   );
 }

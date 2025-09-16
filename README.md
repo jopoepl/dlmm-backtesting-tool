@@ -1,36 +1,129 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DLMM Analytics & Backtesting Tool
 
-## Getting Started
+A comprehensive analytics and backtesting platform for Dynamic Liquidity Market Maker (DLMM) pools on Solana. This tool provides real-time data collection, historical analysis, and backtesting capabilities for DLMM trading strategies.
 
-First, run the development server:
+## 🚀 Features
+
+### ✅ Currently Implemented
+
+- **Real-time Snapshot Collection**: Automated data collection from DLMM pools every hour
+- **Pool Analytics Dashboard**: Live monitoring of pool metrics, reserves, and bin distributions
+- **Database Integration**: Supabase-powered data storage with structured schema
+- **Market Price Integration**: Real-time price feeds from CoinGecko API
+- **Wallet Integration**: Connect and manage Solana wallets
+- **Admin Tools**: Database testing and connection validation
+
+### 🔄 Coming Soon
+
+- **Advanced Backtesting Engine**: Historical strategy testing with customizable parameters
+- **Strategy Performance Analysis**: Detailed metrics and risk assessment
+- **Portfolio Optimization**: Multi-pool strategy backtesting
+- **Alert System**: Real-time notifications for market conditions
+- **Export Capabilities**: Data export for external analysis
+
+## 🏗️ Architecture
+
+### Data Collection
+
+- **Automated Snapshots**: Hourly collection of pool state, reserves, and bin data
+- **Market Context**: Integration with external price feeds for market correlation
+- **Rate Limiting**: Intelligent retry logic with exponential backoff
+- **Error Handling**: Robust error recovery and logging
+
+### Database Schema
+
+- **Pool Snapshots**: Historical pool state and configuration data
+- **Bin Data**: Detailed liquidity distribution across price bins
+- **Market Data**: External price feeds and market metrics
+
+## 🛠️ Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- Supabase account and project
+- Solana RPC endpoint
+
+### Environment Setup
+
+Create a `.env.local` file in the project root:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url_here
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
+
+# Solana RPC (optional, uses default if not provided)
+NEXT_PUBLIC_SOLANA_RPC_URL=your_rpc_url_here
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Installation
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# Install dependencies
+npm install
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Run development server
+npm run dev
+```
 
-## Learn More
+Open [http://localhost:3000](http://localhost:3000) to access the dashboard.
 
-To learn more about Next.js, take a look at the following resources:
+## 📊 Current Capabilities
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Snapshot Collection
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Pool Metadata**: Active bin, bin step, fees, and configuration
+- **Reserve Data**: Token reserves with proper decimal handling
+- **Bin Distribution**: Liquidity distribution across price ranges
+- **Market Context**: Current market price and deviation analysis
 
-## Deploy on Vercel
+### Data Storage
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Structured Schema**: Optimized for analytics and backtesting
+- **Real-time Updates**: Live data collection and storage
+- **Data Validation**: Type-safe data handling and validation
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🔮 Backtesting Roadmap
+
+The backtesting engine will enable:
+
+1. **Strategy Definition**: Custom trading strategies based on pool metrics
+2. **Historical Simulation**: Test strategies against historical data
+3. **Performance Metrics**: ROI, Sharpe ratio, max drawdown analysis
+4. **Risk Assessment**: Volatility and correlation analysis
+5. **Optimization**: Parameter tuning and strategy refinement
+
+## 🚀 Deployment
+
+### Vercel (Recommended)
+
+```bash
+# Deploy to Vercel
+vercel --prod
+```
+
+### Environment Variables
+
+Ensure all required environment variables are set in your deployment platform.
+
+## 📈 Usage
+
+1. **Connect Wallet**: Use the wallet button to connect your Solana wallet
+2. **View Analytics**: Monitor real-time pool metrics and historical data
+3. **Test Database**: Use admin tools to verify data collection
+4. **Collect Snapshots**: Manual snapshot collection for testing
+
+## 🤝 Contributing
+
+This project is actively developed. Contributions are welcome for:
+
+- Backtesting engine development
+- Additional analytics features
+- UI/UX improvements
+- Documentation enhancements
+
+## 📄 License
+
+This project is licensed under the MIT License.
