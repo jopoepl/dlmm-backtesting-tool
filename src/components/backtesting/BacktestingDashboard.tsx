@@ -11,6 +11,7 @@ import {
   Pause,
   SkipBack,
   SkipForward,
+  ChartLine,
 } from "lucide-react";
 import { LiquidityBarChart } from "./LiquidityBarChart";
 import { StrategyTimelineChart } from "./StrategyTimelineChart";
@@ -25,9 +26,9 @@ import {
   allocateSpotLiquidity,
   allocateCurveLiquidity,
   allocateBidAskLiquidity,
-  LiquidityAllocation,
   AllocationParams,
 } from "@/lib/backtesting/liquidityAllocation";
+import { LiquidityAllocation } from "@/types/strategy";
 import { RealTimeStrategyPerformance } from "./RealTimeStrategyPerformance";
 
 interface TimePeriod {
@@ -161,6 +162,7 @@ export function BacktestingDashboard() {
   const [bidAskBins, setBidAskBins] = useState<number[]>([]);
 
   // Allocated liquidity for each strategy
+  // Typecast it here
   const [allocatedLiquidity, setAllocatedLiquidity] = useState<{
     spot: LiquidityAllocation[];
     curve: LiquidityAllocation[];
@@ -170,6 +172,8 @@ export function BacktestingDashboard() {
     curve: [],
     bidAsk: [],
   });
+
+  // This shows how much of liquidity is active in each strategy
 
   const [strategyIsActive, setStrategyIsActive] = useState<{
     spot: number;
@@ -188,7 +192,7 @@ export function BacktestingDashboard() {
       percentage: number;
       totalActive: number;
       totalSnapshots: number;
-      // Utilization metrics
+      //We have Utilization metrics below
       avgUtilizationWhenActive: number;
       overallEfficiency: number;
       peakUtilization: number;
@@ -518,6 +522,14 @@ export function BacktestingDashboard() {
 
       (["spot", "curve", "bidAsk"] as const).forEach((strategy) => {
         const metric = metrics[strategy];
+        /**
+       *  {
+        activeSnapshots: number;
+        totalUtilization: number;
+        utilizationValues: number[];
+        peakUtilization: number;
+    }; - this is what metrics object looks like for spot strategy 
+       */
         const totalSnapshots = state.snapshots.length;
 
         // Calculate averages
@@ -793,9 +805,24 @@ export function BacktestingDashboard() {
     liquidityAmount: number
   ) => {
     const activity = {
-      spot: [] as { start: number; end: number; active: boolean }[],
-      curve: [] as { start: number; end: number; active: boolean }[],
-      bidAsk: [] as { start: number; end: number; active: boolean }[],
+      spot: [] as {
+        start: number;
+        end: number;
+        active: boolean;
+        activeLiquidity?: number;
+      }[],
+      curve: [] as {
+        start: number;
+        end: number;
+        active: boolean;
+        activeLiquidity?: number;
+      }[],
+      bidAsk: [] as {
+        start: number;
+        end: number;
+        active: boolean;
+        activeLiquidity?: number;
+      }[],
     };
 
     snapshots.forEach((snapshot, index) => {
@@ -1283,6 +1310,9 @@ export function BacktestingDashboard() {
           snapshots,
           currentSnapshotIndex: 0, // Reset to first snapshot
         }));
+
+        // Automatically run backtest when data is loaded
+        await runBacktestWithData(snapshots);
       } catch (error) {
         console.error("Error fetching data:", error);
         setState((prev) => ({
@@ -1330,12 +1360,17 @@ export function BacktestingDashboard() {
     }));
   };
 
-  const handleLiquidityChange = (value: number) => {
+  const handleLiquidityChange = async (value: number) => {
     setState((prev) => ({
       ...prev,
       liquidity: value,
       hasResults: false, // Clear results when liquidity changes
     }));
+
+    // Automatically run backtest with new liquidity if data is available
+    if (state.hasData && state.snapshots.length > 0) {
+      await runBacktestWithData(state.snapshots);
+    }
   };
 
   const handleSnapshotChange = (index: number) => {
@@ -1345,12 +1380,12 @@ export function BacktestingDashboard() {
     }));
   };
 
-  const runBacktest = async () => {
-    if (!state.hasData || state.snapshots.length === 0) {
+  // Internal function to run backtest with provided snapshots
+  const runBacktestWithData = async (snapshots: PoolSnapshot[]) => {
+    if (snapshots.length === 0) {
       setState((prev) => ({
         ...prev,
-        error:
-          "No data available for backtesting. Please select a different time period.",
+        error: "No data available for backtesting.",
       }));
       return;
     }
@@ -1358,13 +1393,11 @@ export function BacktestingDashboard() {
     setState((prev) => ({ ...prev, loading: true, error: null }));
 
     try {
-      // TODO: Implement actual backtesting logic using real snapshots
-      // For now, simulate with timeout and mock data based on real data
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // Use real data context for more realistic results
-      const firstSnapshot = state.snapshots[0];
-      const lastSnapshot = state.snapshots[state.snapshots.length - 1];
+      const firstSnapshot = snapshots[0];
+      const lastSnapshot = snapshots[snapshots.length - 1];
       const priceChange = lastSnapshot
         ? ((lastSnapshot.current_price - firstSnapshot.current_price) /
             firstSnapshot.current_price) *
@@ -1385,7 +1418,7 @@ export function BacktestingDashboard() {
           maxDrawdown: -Math.abs(priceChange) * 0.5,
           sharpeRatio: 1.85,
           trades: [],
-          dailyReturns: state.snapshots
+          dailyReturns: snapshots
             .slice(0, 7)
             .map((_, i) => (Math.random() - 0.5) * 2),
         },
@@ -1402,7 +1435,7 @@ export function BacktestingDashboard() {
           maxDrawdown: -Math.abs(priceChange) * 0.3,
           sharpeRatio: 2.21,
           trades: [],
-          dailyReturns: state.snapshots
+          dailyReturns: snapshots
             .slice(0, 7)
             .map((_, i) => (Math.random() - 0.3) * 1.5),
         },
@@ -1419,7 +1452,7 @@ export function BacktestingDashboard() {
           maxDrawdown: -Math.abs(priceChange) * 0.15,
           sharpeRatio: 2.87,
           trades: [],
-          dailyReturns: state.snapshots
+          dailyReturns: snapshots
             .slice(0, 7)
             .map((_, i) => (Math.random() - 0.2) * 1),
         },
@@ -1438,6 +1471,19 @@ export function BacktestingDashboard() {
         error: "Failed to run backtest. Please try again.",
       }));
     }
+  };
+
+  const runBacktest = async () => {
+    if (!state.hasData || state.snapshots.length === 0) {
+      setState((prev) => ({
+        ...prev,
+        error:
+          "No data available for backtesting. Please select a different time period.",
+      }));
+      return;
+    }
+
+    await runBacktestWithData(state.snapshots);
   };
 
   const clearResults = () => {
@@ -1462,6 +1508,23 @@ export function BacktestingDashboard() {
           See which approach works best for different market conditions.
         </p>
       </div>
+
+      {/* Data Status Display */}
+      {state.dataLoading && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-blue-700 text-sm">
+            Loading snapshot data for the selected time period...
+          </p>
+        </div>
+      )}
+      {state.hasData && state.snapshots.length > 0 && !state.loading && (
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <p className="text-green-700 text-sm">
+            ✅ Loaded {state.snapshots.length} snapshots and completed backtest
+            analysis
+          </p>
+        </div>
+      )}
 
       {/* Strategy Overview Cards */}
       <div className="grid md:grid-cols-3 gap-6 mb-8">
@@ -1492,19 +1555,21 @@ export function BacktestingDashboard() {
       </div>
 
       {/* Liquidity Selection */}
-      <div className="bg-white rounded-lg border p-6 shadow-sm mb-6">
-        <div className="flex items-center gap-2 mb-4">
-          <TrendingUp className="w-5 h-5 text-gray-600" />
-          <h2 className="text-xl font-semibold text-gray-900">
-            Select Liquidity Amount
-          </h2>
+      <div className="bg-white rounded-lg border p-4 shadow-sm mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-gray-600" />
+            <h3 className="text-lg font-bold text-gray-900">
+              Select Liquidity Amount
+            </h3>
+          </div>
+          <span className="text-sm font-semibold text-blue-600">
+            ${state.liquidity.toLocaleString()} USDC
+          </span>
         </div>
 
-        <div className="space-y-4">
-          <div className="flex items-center gap-4">
-            <label className="text-sm font-medium text-gray-700 min-w-[80px]">
-              Amount:
-            </label>
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
             <input
               type="number"
               value={state.liquidity}
@@ -1512,70 +1577,77 @@ export function BacktestingDashboard() {
               min="100"
               max="100000"
               step="100"
-              className="w-32 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-24 px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
             />
-            <span className="text-sm text-gray-600">USDC</span>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm text-gray-600">
-              <span>$100</span>
-              <span>$50,000</span>
+            <span className="text-xs text-gray-600">USDC</span>
+            <div className="flex gap-1 ml-auto">
+              {[1000, 5000, 10000, 25000].map((amount) => (
+                <button
+                  key={amount}
+                  onClick={() => handleLiquidityChange(amount)}
+                  className={`px-2 py-1 text-xs rounded ${
+                    state.liquidity === amount
+                      ? "bg-blue-100 text-blue-700"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  ${amount.toLocaleString()}
+                </button>
+              ))}
             </div>
-            <input
-              type="range"
-              min="100"
-              max="50000"
-              step="100"
-              value={state.liquidity}
-              onChange={(e) => handleLiquidityChange(Number(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer 
-                            [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 
-                            [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-600 
-                            [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:border-2 
-                            [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow-md
-                            [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:rounded-full 
-                            [&::-moz-range-thumb]:bg-blue-600 [&::-moz-range-thumb]:cursor-pointer 
-                            [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:shadow-md"
-              style={{
-                background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((state.liquidity -
-                  100) /
-                  (50000 - 100)) *
-                  100}%, #e5e7eb ${((state.liquidity - 100) / (50000 - 100)) *
-                  100}%, #e5e7eb 100%)`,
-              }}
-            />
           </div>
 
-          <div className="mt-4 p-3 bg-gray-50 rounded text-sm text-gray-600">
-            <strong>Selected Liquidity:</strong> $
-            {state.liquidity.toLocaleString()} USDC
-            <span className="ml-2 text-gray-500">
-              (This amount will be used for all strategy backtests)
-            </span>
-          </div>
+          <input
+            type="range"
+            min="100"
+            max="50000"
+            step="100"
+            value={state.liquidity}
+            onChange={(e) => handleLiquidityChange(Number(e.target.value))}
+            className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer 
+                          [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 
+                          [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-600 
+                          [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:border-2 
+                          [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow-sm
+                          [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full 
+                          [&::-moz-range-thumb]:bg-blue-600 [&::-moz-range-thumb]:cursor-pointer 
+                          [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:shadow-sm"
+            style={{
+              background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((state.liquidity -
+                100) /
+                (50000 - 100)) *
+                100}%, #e5e7eb ${((state.liquidity - 100) / (50000 - 100)) *
+                100}%, #e5e7eb 100%)`,
+            }}
+          />
         </div>
       </div>
 
       {/* Time Period Selection */}
-      <div className="bg-white rounded-lg border p-6 shadow-sm mb-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Clock className="w-5 h-5 text-gray-600" />
-          <h2 className="text-xl font-semibold text-gray-900">
-            Select Analysis Period
-          </h2>
+      <div className="bg-white rounded-lg border p-4 shadow-sm mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-gray-600" />
+            <h3 className="text-lg font-bold text-gray-900">
+              Select Analysis Period
+            </h3>
+          </div>
+          <span className="text-xs text-gray-500">
+            {state.timePeriod.start.toLocaleDateString()} -{" "}
+            {state.timePeriod.end.toLocaleDateString()}
+          </span>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="flex gap-2">
           {DEFAULT_TIME_PERIODS.map((period) => (
             <button
               key={period.preset}
               onClick={() => handleTimePeriodChange(period.preset)}
               disabled={period.preset === "custom"} // Disable custom for now
-              className={`p-3 rounded-lg border text-sm font-medium transition-colors ${
+              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
                 state.timePeriod.preset === period.preset
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               } ${
                 period.preset === "custom"
                   ? "opacity-50 cursor-not-allowed"
@@ -1584,68 +1656,76 @@ export function BacktestingDashboard() {
             >
               {period.label}
               {period.preset === "custom" && (
-                <div className="text-xs text-gray-400 mt-1">Coming Soon</div>
+                <div className="text-[10px] text-gray-400">Soon</div>
               )}
             </button>
           ))}
         </div>
-
-        <div className="mt-4 p-3 bg-gray-50 rounded text-sm text-gray-600">
-          <strong>Selected Period:</strong> {state.timePeriod.label}
-          <span className="ml-2 text-gray-500">
-            ({state.timePeriod.start.toLocaleDateString()} -{" "}
-            {state.timePeriod.end.toLocaleDateString()})
-          </span>
-        </div>
       </div>
-
-      {/* Run Backtest Button */}
-      <div className="text-center mb-8">
-        <button
-          onClick={runBacktest}
-          disabled={state.loading || state.dataLoading || !state.hasData}
-          className="bg-blue-600 text-white px-8 py-3 rounded-lg font-medium hover:bg-blue-700 
-                     disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3 mx-auto
-                     transition-colors shadow-sm hover:shadow-md"
-        >
-          {state.loading ? (
-            <>
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-              Running Backtest...
-            </>
-          ) : state.dataLoading ? (
-            <>
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-              Loading Data...
-            </>
-          ) : !state.hasData ? (
-            <>
-              <Play className="w-5 h-5" />
-              No Data Available
-            </>
-          ) : (
-            <>
-              <Play className="w-5 h-5" />
-              Run Backtest for All Strategies
-            </>
+      {/* Strategy Configuration */}
+      {state.hasData && state.snapshots.length > 0 && (
+        <div className="bg-white rounded-lg border p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <ChartLine className="w-4 h-4 text-gray-600" />
+              <h3 className="text-lg font-bold text-gray-900">
+                Select Strategy Configuration
+              </h3>
+            </div>
+          </div>
+          <div className="space-y-4">
+            <div className="flex items-center gap-4">
+              <label className="text-xs font-medium text-gray-700">
+                Bin Range:
+              </label>
+              <div className="flex gap-2">
+                {[1, 2, 5, 10].map((percent) => (
+                  <button
+                    key={percent}
+                    onClick={() =>
+                      setStrategyConfig((prev) => ({
+                        ...prev,
+                        binRangePercent: percent,
+                      }))
+                    }
+                    className={`px-3 py-1 text-xs rounded ${
+                      strategyConfig.binRangePercent === percent
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    {percent}% ({percent * 2 + 1} bins)
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          {/* Strategy Liquidity Allocation */}
+          {allocatedLiquidity && (
+            <StrategyLiquidityAllocation
+              allocatedLiquidity={allocatedLiquidity}
+            />
           )}
-        </button>
+        </div>
+      )}
 
-        {state.hasResults && (
+      {/* Clear Results Button */}
+      {state.hasResults && (
+        <div className="text-center mb-8">
           <button
             onClick={clearResults}
-            className="ml-4 text-gray-600 hover:text-gray-800 text-sm underline"
+            className="text-gray-600 hover:text-gray-800 text-sm underline"
           >
             Clear Results
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Data Status Display */}
-      {state.dataLoading && (
+      {state.loading && state.hasData && (
         <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-blue-700 text-sm">
-            Loading snapshot data for the selected time period...
+          <p className="text-blue-700 text-sm flex items-center gap-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+            Running backtest analysis automatically...
           </p>
         </div>
       )}
@@ -1653,14 +1733,6 @@ export function BacktestingDashboard() {
       {state.dataError && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
           <p className="text-red-700 text-sm">{state.dataError}</p>
-        </div>
-      )}
-
-      {state.hasData && state.snapshots.length > 0 && (
-        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-          <p className="text-green-700 text-sm">
-            ✅ Loaded {state.snapshots.length} snapshots for analysis
-          </p>
         </div>
       )}
 
@@ -1693,86 +1765,111 @@ export function BacktestingDashboard() {
       {/* Results Section */}
       {state.hasResults && (
         <div className="space-y-6">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="w-5 h-5 text-green-600" />
-            <h2 className="text-xl font-semibold text-gray-900">
-              Backtest Results
-            </h2>
-            <span className="text-sm text-gray-500">
-              ({state.timePeriod.label})
-            </span>
-          </div>
-
-          {/* Results Summary Table */}
-          <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="text-left p-4 font-medium text-gray-900">
-                    Strategy
-                  </th>
-                  <th className="text-right p-4 font-medium text-gray-900">
-                    Total Return
-                  </th>
-                  <th className="text-right p-4 font-medium text-gray-900">
-                    Fees Earned
-                  </th>
-                  <th className="text-right p-4 font-medium text-gray-900">
-                    Impermanent Loss
-                  </th>
-                  <th className="text-right p-4 font-medium text-gray-900">
-                    Sharpe Ratio
-                  </th>
-                  <th className="text-center p-4 font-medium text-gray-900">
-                    Risk Level
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {state.backtestResults.map((result, index) => (
-                  <tr
-                    key={result.strategy}
-                    className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
-                  >
-                    <td className="p-4 font-medium text-gray-900">
-                      {result.strategy}
-                    </td>
-                    <td
-                      className={`p-4 text-right font-medium ${
-                        result.returns > 0 ? "text-green-600" : "text-red-600"
-                      }`}
-                    >
-                      {result.returns > 0 ? "+" : ""}
-                      {result.returns.toFixed(1)}%
-                    </td>
-                    <td className="p-4 text-right text-green-600 font-medium">
-                      ${result.fees.toFixed(2)}
-                    </td>
-                    <td className="p-4 text-right text-red-600 font-medium">
-                      {result.impermanentLoss.toFixed(1)}%
-                    </td>
-                    <td className="p-4 text-right font-medium">
-                      {result.sharpeRatio.toFixed(2)}
-                    </td>
-                    <td className="p-4 text-center">
-                      {
-                        ALL_STRATEGIES.find((s) => s.name === result.strategy)
-                          ?.riskLevel
-                      }
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
           {/* Liquidity Distribution Chart */}
           <div className="space-y-4">
             <div className="space-y-4">
+              {/* Header with title and controls */}
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Liquidity Distribution Analysis
+                <h3 className="text-lg font-bold text-gray-900">
+                  Backtesting Results
                 </h3>
+
+                {/* Navigation and Play controls */}
+                <div className="flex items-center gap-2">
+                  {/* Navigation buttons */}
+                  <button
+                    onClick={goToFirstSnapshot}
+                    disabled={state.dataLoading || !state.hasData}
+                    className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Go to first snapshot"
+                  >
+                    <SkipBack className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    onClick={goToPreviousSnapshot}
+                    disabled={
+                      state.dataLoading ||
+                      !state.hasData ||
+                      state.currentSnapshotIndex === 0
+                    }
+                    className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Previous snapshot"
+                  >
+                    <SkipBack className="w-4 h-4" />
+                  </button>
+
+                  {/* Play/Pause button */}
+                  <button
+                    onClick={state.isAnimating ? stopAnimation : startAnimation}
+                    disabled={
+                      state.dataLoading ||
+                      !state.hasData ||
+                      state.snapshots.length <= 1
+                    }
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {state.isAnimating ? (
+                      <>
+                        <Pause className="w-4 h-4" />
+                        Pause
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-4 h-4" />
+                        Play
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={goToNextSnapshot}
+                    disabled={
+                      state.dataLoading ||
+                      !state.hasData ||
+                      state.currentSnapshotIndex >= state.snapshots.length - 1
+                    }
+                    className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Next snapshot"
+                  >
+                    <SkipForward className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    onClick={goToLastSnapshot}
+                    disabled={state.dataLoading || !state.hasData}
+                    className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Go to last snapshot"
+                  >
+                    <SkipForward className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Progress bar and snapshot selector */}
+              <div className="space-y-3">
+                {/* Progress bar */}
+                <div>
+                  <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>Progress</span>
+                    <span>
+                      {state.currentSnapshotIndex + 1} /{" "}
+                      {state.snapshots.length}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{
+                        width: `${((state.currentSnapshotIndex + 1) /
+                          state.snapshots.length) *
+                          100}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Snapshot selector */}
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600">Snapshot:</span>
                   <select
@@ -1794,185 +1891,6 @@ export function BacktestingDashboard() {
               </div>
 
               {/* Animation Controls */}
-              {state.hasData && state.snapshots.length > 1 && (
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-medium text-gray-700">
-                      Animation Controls
-                    </h4>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">
-                        {state.currentSnapshotIndex + 1} of{" "}
-                        {state.snapshots.length}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        (
-                        {new Date(
-                          state.snapshots[state.currentSnapshotIndex]
-                            ?.timestamp || 0
-                        ).toLocaleString()}
-                        )
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 mb-3">
-                    {/* Navigation buttons */}
-                    <button
-                      onClick={goToFirstSnapshot}
-                      disabled={state.dataLoading || !state.hasData}
-                      className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Go to first snapshot"
-                    >
-                      <SkipBack className="w-4 h-4" />
-                    </button>
-
-                    <button
-                      onClick={goToPreviousSnapshot}
-                      disabled={
-                        state.dataLoading ||
-                        !state.hasData ||
-                        state.currentSnapshotIndex === 0
-                      }
-                      className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Previous snapshot"
-                    >
-                      <SkipBack className="w-4 h-4" />
-                    </button>
-
-                    {/* Play/Pause button */}
-                    <button
-                      onClick={
-                        state.isAnimating ? stopAnimation : startAnimation
-                      }
-                      disabled={
-                        state.dataLoading ||
-                        !state.hasData ||
-                        state.snapshots.length <= 1
-                      }
-                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                    >
-                      {state.isAnimating ? (
-                        <>
-                          <Pause className="w-4 h-4" />
-                          Pause
-                        </>
-                      ) : (
-                        <>
-                          <Play className="w-4 h-4" />
-                          Play
-                        </>
-                      )}
-                    </button>
-
-                    <button
-                      onClick={goToNextSnapshot}
-                      disabled={
-                        state.dataLoading ||
-                        !state.hasData ||
-                        state.currentSnapshotIndex >= state.snapshots.length - 1
-                      }
-                      className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Next snapshot"
-                    >
-                      <SkipForward className="w-4 h-4" />
-                    </button>
-
-                    <button
-                      onClick={goToLastSnapshot}
-                      disabled={state.dataLoading || !state.hasData}
-                      className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Go to last snapshot"
-                    >
-                      <SkipForward className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {/* Progress bar */}
-                  <div className="mb-3">
-                    <div className="flex justify-between text-xs text-gray-500 mb-1">
-                      <span>Progress</span>
-                      <span>
-                        {state.currentSnapshotIndex + 1} /{" "}
-                        {state.snapshots.length}
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                        style={{
-                          width: `${((state.currentSnapshotIndex + 1) /
-                            state.snapshots.length) *
-                            100}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Speed control */}
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-gray-600">Speed:</span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleAnimationSpeedChange(2000)}
-                        className={`px-2 py-1 text-xs rounded ${
-                          state.animationSpeed === 2000
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                        }`}
-                      >
-                        Slow
-                      </button>
-                      <button
-                        onClick={() => handleAnimationSpeedChange(1000)}
-                        className={`px-2 py-1 text-xs rounded ${
-                          state.animationSpeed === 1000
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                        }`}
-                      >
-                        Normal
-                      </button>
-                      <button
-                        onClick={() => handleAnimationSpeedChange(500)}
-                        className={`px-2 py-1 text-xs rounded ${
-                          state.animationSpeed === 500
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                        }`}
-                      >
-                        Fast
-                      </button>
-                    </div>
-                    <span className="text-xs text-gray-500">
-                      {state.animationSpeed}ms per snapshot
-                    </span>
-                  </div>
-
-                  {/* Loop Toggle */}
-                  <div className="flex items-center gap-2">
-                    <label className="flex items-center gap-2 text-sm text-gray-700">
-                      <input
-                        type="checkbox"
-                        checked={state.shouldLoop}
-                        onChange={(e) =>
-                          setState((prev) => ({
-                            ...prev,
-                            shouldLoop: e.target.checked,
-                          }))
-                        }
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      Loop animation
-                    </label>
-                    <span className="text-xs text-gray-500">
-                      {state.shouldLoop
-                        ? "Will restart from beginning"
-                        : "Will stop after one cycle"}
-                    </span>
-                  </div>
-                </div>
-              )}
             </div>
 
             {(() => {
@@ -2024,66 +1942,6 @@ export function BacktestingDashboard() {
 
               return (
                 <div className="space-y-4">
-                  {/* Strategy Configuration */}
-                  {state.hasData && state.snapshots.length > 0 && (
-                    <div className="bg-white rounded-lg border p-6 shadow-sm">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                        Strategy Configuration
-                      </h3>
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-4">
-                          <label className="text-sm font-medium text-gray-700">
-                            Bin Range:
-                          </label>
-                          <div className="flex gap-2">
-                            {[1, 2, 5, 10].map((percent) => (
-                              <button
-                                key={percent}
-                                onClick={() =>
-                                  setStrategyConfig((prev) => ({
-                                    ...prev,
-                                    binRangePercent: percent,
-                                  }))
-                                }
-                                className={`px-3 py-1 text-sm rounded ${
-                                  strategyConfig.binRangePercent === percent
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                                }`}
-                              >
-                                {percent}% ({percent * 2 + 1} bins)
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="text-[8px] text-gray-600">
-                          <p>
-                            <strong>Spot Strategy:</strong> Equal distribution
-                            across {strategyConfig.binRange * 2 + 1} bins
-                            (active bin ±{strategyConfig.binRange})
-                          </p>
-                          <p>
-                            <strong>Curve Strategy:</strong> Concentrated around
-                            active bin, tapering to{" "}
-                            {strategyConfig.binRange * 2 + 1} bins
-                          </p>
-                          <p>
-                            <strong>Bid-Ask Strategy:</strong> Liquidity at both
-                            ends of {strategyConfig.binRange * 2 + 1} bin range
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Strategy Liquidity Allocation */}
-                      {allocatedLiquidity && (
-                        <StrategyLiquidityAllocation
-                          allocatedLiquidity={allocatedLiquidity}
-                        />
-                      )}
-                    </div>
-                  )}
-
                   {/* Real-time Strategy Performance */}
                   <RealTimeStrategyPerformance
                     strategyCalculator={strategyCalculator}
@@ -2118,43 +1976,6 @@ export function BacktestingDashboard() {
                 </div>
               );
             })()}
-          </div>
-
-          {/* Strategy Timeline Chart */}
-          {state.hasData && state.snapshots.length > 0 && (
-            <StrategyTimelineChart
-              snapshots={state.snapshots}
-              strategyActivity={strategyActivity}
-              strategyCalculator={strategyCalculator}
-              currentSnapshotIndex={state.currentSnapshotIndex}
-              isAnimating={state.isAnimating}
-              timeRange={{
-                start: new Date(state.snapshots[0]?.timestamp || 0).getTime(),
-                end: new Date(
-                  state.snapshots[state.snapshots.length - 1]?.timestamp || 0
-                ).getTime(),
-              }}
-            />
-          )}
-
-          {/* Placeholder for Future Components */}
-          <div className="bg-white rounded-lg border p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">
-              Performance Chart
-            </h3>
-            <div className="h-64 bg-gray-50 rounded flex items-center justify-center text-gray-500">
-              📊 Interactive strategy comparison chart coming soon...
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg border p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">
-              Market Analysis
-            </h3>
-            <div className="bg-gray-50 rounded p-4 text-gray-500">
-              🧠 AI-powered market condition analysis and strategy
-              recommendations coming soon...
-            </div>
           </div>
         </div>
       )}

@@ -15,6 +15,7 @@ export const metadata: Metadata = {
   description: "Strategy analytics and optimization for Saros DLMM",
 };
 
+
 export default function RootLayout({
   children,
 }: {

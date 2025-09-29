@@ -21,20 +21,17 @@ export function StrategyLiquidityAllocation({
   } | null>(null);
 
   return (
-    <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-      <div className="text-sm font-medium text-blue-900 mb-3">
-        Strategy Liquidity Allocation
-      </div>
+    <div className="mt-4  rounded-lg ">
       <div className="space-y-4">
         {/* Spot Strategy Bar */}
         <div>
           <div className="flex items-center gap-2 mb-2">
             <div className="w-3 h-3 bg-red-200 border border-red-400 rounded"></div>
-            <span className="font-medium text-gray-700 text-sm">
+            <span className="font-medium text-gray-700 text-xs">
               Spot Strategy
             </span>
           </div>
-          <div className="flex h-8 rounded overflow-hidden border border-gray-200">
+          <div className="flex h-8 rounded overflow-hidden border">
             {allocatedLiquidity.spot.map((allocation, index) => {
               const totalSpot = allocatedLiquidity.spot.reduce(
                 (sum, a) => sum + a.totalLiquidity,
@@ -48,7 +45,7 @@ export function StrategyLiquidityAllocation({
               return (
                 <div
                   key={allocation.binId}
-                  className="relative group cursor-pointer transition-all duration-200 border border-gray-300"
+                  className="relative group cursor-pointer transition-all duration-200 border"
                   style={{ width: `${width}%` }}
                   onMouseEnter={(e) => {
                     const tooltipId = `tooltip-spot-${allocation.binId}`;
@@ -169,11 +166,11 @@ export function StrategyLiquidityAllocation({
         <div>
           <div className="flex items-center gap-2 mb-2">
             <div className="w-3 h-3 bg-yellow-200 border border-yellow-400 rounded"></div>
-            <span className="font-medium text-gray-700 text-sm">
+            <span className="font-medium text-gray-700 text-xs">
               Curve Strategy
             </span>
           </div>
-          <div className="flex h-8 rounded overflow-hidden border border-gray-200">
+          <div className="flex h-8 rounded overflow-hidden border">
             {allocatedLiquidity.curve.map((allocation, index) => {
               const totalCurve = allocatedLiquidity.curve.reduce(
                 (sum, a) => sum + a.totalLiquidity,
@@ -187,7 +184,7 @@ export function StrategyLiquidityAllocation({
               return (
                 <div
                   key={allocation.binId}
-                  className="relative group cursor-pointer transition-all duration-200 border border-gray-300"
+                  className="relative group cursor-pointer transition-all duration-200 border"
                   style={{ width: `${width}%` }}
                   onMouseEnter={(e) => {
                     const tooltipId = `tooltip-curve-${allocation.binId}`;
@@ -310,11 +307,11 @@ export function StrategyLiquidityAllocation({
         <div>
           <div className="flex items-center gap-2 mb-2">
             <div className="w-3 h-3 bg-green-200 border border-green-400 rounded"></div>
-            <span className="font-medium text-gray-700 text-sm">
+            <span className="font-medium text-gray-700 text-xs">
               Bid-Ask Strategy
             </span>
           </div>
-          <div className="flex h-8 rounded overflow-hidden border border-gray-200">
+          <div className="flex h-8 rounded overflow-hidden border">
             {allocatedLiquidity.bidAsk.map((allocation, index) => {
               const totalBidAsk = allocatedLiquidity.bidAsk.reduce(
                 (sum, a) => sum + a.totalLiquidity,
@@ -328,7 +325,7 @@ export function StrategyLiquidityAllocation({
               return (
                 <div
                   key={allocation.binId}
-                  className="relative group cursor-pointer transition-all duration-200 border border-gray-300"
+                  className="relative group cursor-pointer transition-all duration-200 border"
                   style={{ width: `${width}%` }}
                   onMouseEnter={(e) => {
                     const tooltipId = `tooltip-bidAsk-${allocation.binId}`;
@@ -466,9 +463,6 @@ export function StrategyLiquidityAllocation({
       </div>
       <div className="mt-2 text-xs text-gray-600 text-center">
         Hover over segments to see detailed allocation
-      </div>
-      <div className="mt-1 text-xs text-red-600 text-center">
-        Debug: {hoveredSegment || "No segment hovered"}
       </div>
 
       {/* Global Tooltip */}

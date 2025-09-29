@@ -1,84 +1,92 @@
 "use client";
 
+import React, { useState, useEffect } from "react";
+import { PoolSnapshot } from "@/types/snapshots";
 import { LiquidityDistribution } from "@/types/dlmmData";
-import { useState } from "react";
-import { RealTimeStrategyPerformance } from "./RealTimeStrategyPerformance";
+import { snapshotToLiquidityDistribution } from "@/lib/data/realDataService";
+import { Play, Pause, Square } from "lucide-react";
 
-interface LiquidityBarChartProps {
-  data: LiquidityDistribution[];
-  snapshotId: number;
-  timestamp: number;
-  activeBinId: number;
-  currentPrice: number;
-  onBinClick?: (binId: number) => void;
-  strategyRanges?: {
-    spot: number[];
-    curve: number[];
-    bidAsk: number[];
-  };
-  allocatedLiquidity?: {
-    spot: LiquidityAllocation[];
-    curve: LiquidityAllocation[];
-    bidAsk: LiquidityAllocation[];
-  };
-  strategyCalculator?: {
-    spot: {
-      active: boolean;
-      percentage: number;
-      totalActive: number;
-      totalSnapshots: number;
-    };
-    curve: {
-      active: boolean;
-      percentage: number;
-      totalActive: number;
-      totalSnapshots: number;
-    };
-    bidAsk: {
-      active: boolean;
-      percentage: number;
-      totalActive: number;
-      totalSnapshots: number;
-    };
-  };
-  setHoveredTooltip?: (tooltip: string | null) => void;
-  hoveredTooltip?: string | null;
+interface LiquidityChartProps {
+  filteredSnapshots: PoolSnapshot[];
+  startingSnapshot: PoolSnapshot | null;
 }
 
-export function LiquidityBarChart({
-  data,
-  snapshotId,
-  timestamp,
-  activeBinId,
-  currentPrice,
-  onBinClick,
-  strategyRanges,
-  allocatedLiquidity,
-  strategyCalculator,
-  setHoveredTooltip,
-  hoveredTooltip,
-}: LiquidityBarChartProps) {
+const LiquidityChart: React.FC<LiquidityChartProps> = ({
+  filteredSnapshots,
+  startingSnapshot,
+}) => {
+  const [liquidityData, setLiquidityData] = useState<LiquidityDistribution[]>(
+    []
+  );
   const [hoveredBin, setHoveredBin] = useState<number | null>(null);
-  const [hoveredSegment, setHoveredSegment] = useState<string | null>(null);
   const [mousePosition, setMousePosition] = useState<{
     x: number;
     y: number;
   } | null>(null);
-  const [tooltipPosition, setTooltipPosition] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
 
-  // State for toggling strategy overlays
-  const [showOverlays, setShowOverlays] = useState<{
-    spot: boolean;
-    curve: boolean;
-    bidAsk: boolean;
-  }>({
-    spot: true,
-    curve: true,
-    bidAsk: true,
-  });
+  // Animation state
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [currentSnapshotIndex, setCurrentSnapshotIndex] = useState(0);
+  const [currentSnapshot, setCurrentSnapshot] = useState<PoolSnapshot | null>(
+    null
+  );
+
+  // Update liquidity data when startingSnapshot changes
+  useEffect(() => {
+    if (startingSnapshot) {
+      const distribution = snapshotToLiquidityDistribution(startingSnapshot);
+      setLiquidityData(distribution);
+      setCurrentSnapshot(startingSnapshot);
+      setCurrentSnapshotIndex(0);
+    } else {
+      setLiquidityData([]);
+      setCurrentSnapshot(null);
+      setCurrentSnapshotIndex(0);
+    }
+  }, [startingSnapshot]);
+
+  // Animation effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+
+    if (isAnimating && filteredSnapshots.length > 1) {
+      interval = setInterval(() => {
+        setCurrentSnapshotIndex((prevIndex) => {
+          const nextIndex = (prevIndex + 1) % filteredSnapshots.length;
+          const nextSnapshot = filteredSnapshots[nextIndex];
+          setCurrentSnapshot(nextSnapshot);
+          const distribution = snapshotToLiquidityDistribution(nextSnapshot);
+          setLiquidityData(distribution);
+          return nextIndex;
+        });
+      }, 200); // 200ms between snapshots for smooth animation
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isAnimating, filteredSnapshots]);
+
+  // Animation controls
+  const startAnimation = () => {
+    if (filteredSnapshots.length > 1) {
+      setIsAnimating(true);
+    }
+  };
+
+  const stopAnimation = () => {
+    setIsAnimating(false);
+  };
+
+  const resetAnimation = () => {
+    setIsAnimating(false);
+    setCurrentSnapshotIndex(0);
+    if (startingSnapshot) {
+      setCurrentSnapshot(startingSnapshot);
+      const distribution = snapshotToLiquidityDistribution(startingSnapshot);
+      setLiquidityData(distribution);
+    }
+  };
 
   // Normalize data to always have exactly 21 bins (10 on each side + active bin)
   const normalizeTo21Bins = (
@@ -101,7 +109,7 @@ export function LiquidityBarChart({
         normalizedData.push(existingBin);
       } else {
         // Create empty bin for missing bin IDs
-        // Calculate price for this bin (you might need to implement this)
+        const currentPrice = startingSnapshot?.current_price || 1;
         const price = currentPrice * Math.pow(1.0001, i); // Approximate price calculation
 
         normalizedData.push({
@@ -117,19 +125,6 @@ export function LiquidityBarChart({
 
     return normalizedData;
   };
-
-  // Sort data by bin_id for consistent display
-  const sortedData = normalizeTo21Bins(data, activeBinId);
-
-  // Use linear scale based on actual liquidity values
-  const liquidityValues = sortedData.map((d) => d.total_liquidity);
-  const maxLiquidity = Math.max(...liquidityValues);
-  const minLiquidity = Math.min(...liquidityValues);
-  const liquidityRange = maxLiquidity - minLiquidity;
-
-  // Scaling factor for Y-axis display
-  const scalingFactor = 1.5;
-  const displayMaxLiquidity = maxLiquidity * scalingFactor;
 
   // Format timestamp for display
   const formatTimestamp = (ts: number) => {
@@ -162,37 +157,90 @@ export function LiquidityBarChart({
     }
   };
 
-  // Calculate chart offset to center the active bin
-  const getChartOffset = () => {
-    const activeIndex = sortedData.findIndex((b) => b.bin_id === activeBinId);
-    if (activeIndex === -1) return 0;
+  if (!currentSnapshot || liquidityData.length === 0) {
+    return (
+      <div className="bg-white rounded-lg border p-6 shadow-sm">
+        <div className="h-64 bg-gray-50 rounded flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-gray-600 mb-2">No data available</p>
+            <p className="text-sm text-gray-500">
+              No snapshots found for the selected time period
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-    // Calculate the center position of the active bin
-    const activeBinCenter = (activeIndex + 0.5) / sortedData.length;
+  // Sort data by bin_id for consistent display
+  const sortedData = normalizeTo21Bins(
+    liquidityData,
+    currentSnapshot.active_bin_id
+  );
 
-    // Calculate how much to shift to center the active bin
-    // We want the active bin to be roughly in the center of the visible area
-    const targetCenter = 0.5; // Center of the chart
-    const offset = (targetCenter - activeBinCenter) * 100; // Convert to percentage
+  // Use linear scale based on actual liquidity values
+  const liquidityValues = sortedData.map((d) => d.total_liquidity);
+  const maxLiquidity = Math.max(...liquidityValues);
+  const minLiquidity = Math.min(...liquidityValues);
 
-    // More aggressive centering for smoother movement
-    const maxOffset = 60; // Increased to 60% for more dramatic centering
-    return Math.max(-maxOffset, Math.min(maxOffset, offset));
-  };
+  // Scaling factor for Y-axis display
+  const scalingFactor = 1.5;
+  const displayMaxLiquidity = maxLiquidity * scalingFactor;
 
   return (
     <div className="bg-white rounded-lg border p-6 shadow-sm">
       <div className="mb-4">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-lg font-semibold text-gray-900">
-            Liquidity Distribution - Snapshot at {formatTimestamp(timestamp)}
+            Liquidity Distribution - Snapshot at{" "}
+            {formatTimestamp(currentSnapshot.timestamp)}
           </h3>
-          <div className="text-sm text-gray-500">ID: {snapshotId}</div>
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-gray-500">
+              ID: {currentSnapshot.id}
+            </div>
+            <div className="text-sm text-gray-500">
+              {currentSnapshotIndex + 1} / {filteredSnapshots.length}
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-4 text-sm text-gray-600">
-          <span>Active Bin: {activeBinId}</span>
-          <span>Current Price: ${formatPrice(currentPrice)}</span>
-          <span>Max Liquidity: {formatLiquidity(maxLiquidity)}</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4 text-sm text-gray-600">
+            <span>Active Bin: {currentSnapshot.active_bin_id}</span>
+            <span>
+              Current Price: ${formatPrice(currentSnapshot.current_price)}
+            </span>
+            <span>Max Liquidity: {formatLiquidity(maxLiquidity)}</span>
+          </div>
+
+          {/* Animation Controls */}
+          <div className="flex items-center gap-2">
+            {!isAnimating ? (
+              <button
+                onClick={startAnimation}
+                disabled={filteredSnapshots.length <= 1}
+                className="flex items-center gap-2 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              >
+                <Play className="w-4 h-4" />
+                Play
+              </button>
+            ) : (
+              <button
+                onClick={stopAnimation}
+                className="flex items-center gap-2 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
+              >
+                <Pause className="w-4 h-4" />
+                Pause
+              </button>
+            )}
+            <button
+              onClick={resetAnimation}
+              className="flex items-center gap-2 px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm"
+            >
+              <Square className="w-4 h-4" />
+              Reset
+            </button>
+          </div>
         </div>
 
         {/* Liquidity Summary */}
@@ -236,71 +284,7 @@ export function LiquidityBarChart({
             </div>
           </div>
         </div>
-
-        {/* Strategy Range Legend */}
-        {strategyRanges && (
-          <div className="mt-2 p-2 bg-gray-50 rounded-lg">
-            <div className="flex items-center gap-4 text-xs">
-              <span className="text-gray-600 font-medium">
-                Show Strategy Ranges:
-              </span>
-              {strategyRanges.spot.length > 0 && (
-                <label className="flex items-center gap-1 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showOverlays.spot}
-                    onChange={(e) =>
-                      setShowOverlays((prev) => ({
-                        ...prev,
-                        spot: e.target.checked,
-                      }))
-                    }
-                    className="w-3 h-3 text-red-600 border-gray-300 rounded focus:ring-red-500"
-                  />
-                  <div className="w-3 h-3 bg-red-200 border border-red-400 rounded"></div>
-                  <span className="text-gray-700">Spot</span>
-                </label>
-              )}
-              {strategyRanges.curve.length > 0 && (
-                <label className="flex items-center gap-1 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showOverlays.curve}
-                    onChange={(e) =>
-                      setShowOverlays((prev) => ({
-                        ...prev,
-                        curve: e.target.checked,
-                      }))
-                    }
-                    className="w-3 h-3 text-yellow-600 border-gray-300 rounded focus:ring-yellow-500"
-                  />
-                  <div className="w-3 h-3 bg-yellow-200 border border-yellow-400 rounded"></div>
-                  <span className="text-gray-700">Curve</span>
-                </label>
-              )}
-              {strategyRanges.bidAsk.length > 0 && (
-                <label className="flex items-center gap-1 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showOverlays.bidAsk}
-                    onChange={(e) =>
-                      setShowOverlays((prev) => ({
-                        ...prev,
-                        bidAsk: e.target.checked,
-                      }))
-                    }
-                    className="w-3 h-3 text-green-600 border-gray-300 rounded focus:ring-green-500"
-                  />
-                  <div className="w-3 h-3 bg-green-200 border border-green-400 rounded"></div>
-                  <span className="text-gray-700">Bid-Ask</span>
-                </label>
-              )}
-            </div>
-          </div>
-        )}
       </div>
-
-      {/* Real-time Strategy Performance */}
 
       {/* Chart Container */}
       <div className="relative">
@@ -319,7 +303,9 @@ export function LiquidityBarChart({
           <div
             className="absolute top-0 h-full bg-blue-50 opacity-30 transition-all duration-800 ease-out"
             style={{
-              left: `${((sortedData.findIndex((b) => b.bin_id === activeBinId) +
+              left: `${((sortedData.findIndex(
+                (b) => b.bin_id === currentSnapshot.active_bin_id
+              ) +
                 0.5) /
                 sortedData.length) *
                 100}%`,
@@ -327,173 +313,6 @@ export function LiquidityBarChart({
               transform: "translateX(-50%)",
             }}
           />
-
-          {/* Strategy Range Overlays with Liquidity-Based Gradients */}
-          {strategyRanges && allocatedLiquidity && (
-            <>
-              {/* Spot Strategy Range - Red with Equal Distribution */}
-              {showOverlays.spot &&
-                strategyRanges.spot.map((binId, index) => {
-                  // Find the bin in the sorted data, or create a placeholder if it doesn't exist
-                  let binIndex = sortedData.findIndex(
-                    (b) => b.bin_id === binId
-                  );
-
-                  // If bin doesn't exist in sortedData, calculate its position based on bin ID difference
-                  if (binIndex === -1) {
-                    const activeBinId = sortedData.find((b) => b.is_active)
-                      ?.bin_id;
-                    if (activeBinId !== undefined) {
-                      const binDiff = binId - activeBinId;
-                      binIndex = Math.floor(sortedData.length / 2) + binDiff;
-                    }
-                  }
-
-                  if (binIndex < 0 || binIndex >= sortedData.length)
-                    return null;
-
-                  // Find the allocation for this bin
-                  const allocation = allocatedLiquidity.spot.find(
-                    (a) => a.binId === binId
-                  );
-                  const maxAllocation = Math.max(
-                    ...allocatedLiquidity.spot.map((a) => a.totalLiquidity)
-                  );
-                  const heightPercentage = allocation
-                    ? Math.max(
-                        5,
-                        (allocation.totalLiquidity / maxAllocation) * 100
-                      )
-                    : 5;
-
-                  return (
-                    <div
-                      key={`spot-${binId}`}
-                      className="absolute bottom-0 border-l border-r border-red-400 transition-all duration-800 ease-out"
-                      style={{
-                        left: `${(binIndex / sortedData.length) * 100}%`,
-                        width: `${100 / sortedData.length}%`,
-                        height: `${heightPercentage}%`,
-                        background: `linear-gradient(to top, 
-                          rgba(239, 68, 68, 0.8), 
-                          rgba(239, 68, 68, 0.4), 
-                          rgba(239, 68, 68, 0.1)
-                        )`,
-                        borderRadius: "2px 2px 0 0",
-                      }}
-                    />
-                  );
-                })}
-
-              {/* Curve Strategy Range - Yellow with Bell Curve Gradient */}
-              {showOverlays.curve &&
-                strategyRanges.curve.map((binId, index) => {
-                  // Find the bin in the sorted data, or create a placeholder if it doesn't exist
-                  let binIndex = sortedData.findIndex(
-                    (b) => b.bin_id === binId
-                  );
-
-                  // If bin doesn't exist in sortedData, calculate its position based on bin ID difference
-                  if (binIndex === -1) {
-                    const activeBinId = sortedData.find((b) => b.is_active)
-                      ?.bin_id;
-                    if (activeBinId !== undefined) {
-                      const binDiff = binId - activeBinId;
-                      binIndex = Math.floor(sortedData.length / 2) + binDiff;
-                    }
-                  }
-
-                  if (binIndex < 0 || binIndex >= sortedData.length)
-                    return null;
-
-                  // Find the allocation for this bin
-                  const allocation = allocatedLiquidity.curve.find(
-                    (a) => a.binId === binId
-                  );
-                  const maxAllocation = Math.max(
-                    ...allocatedLiquidity.curve.map((a) => a.totalLiquidity)
-                  );
-                  const heightPercentage = allocation
-                    ? Math.max(
-                        5,
-                        (allocation.totalLiquidity / maxAllocation) * 100
-                      )
-                    : 5;
-
-                  return (
-                    <div
-                      key={`curve-${binId}`}
-                      className="absolute bottom-0 border-l border-r border-yellow-400 transition-all duration-800 ease-out"
-                      style={{
-                        left: `${(binIndex / sortedData.length) * 100}%`,
-                        width: `${100 / sortedData.length}%`,
-                        height: `${heightPercentage}%`,
-                        background: `linear-gradient(to top, 
-                          rgba(234, 179, 8, 0.8), 
-                          rgba(234, 179, 8, 0.4), 
-                          rgba(234, 179, 8, 0.1)
-                        )`,
-                        borderRadius: "2px 2px 0 0",
-                      }}
-                    />
-                  );
-                })}
-
-              {/* Bid-Ask Strategy Range - Green with Inverted Bell Curve (U-Shape) */}
-              {showOverlays.bidAsk &&
-                strategyRanges.bidAsk.map((binId, index) => {
-                  // Find the bin in the sorted data, or create a placeholder if it doesn't exist
-                  let binIndex = sortedData.findIndex(
-                    (b) => b.bin_id === binId
-                  );
-
-                  // If bin doesn't exist in sortedData, calculate its position based on bin ID difference
-                  if (binIndex === -1) {
-                    const activeBinId = sortedData.find((b) => b.is_active)
-                      ?.bin_id;
-                    if (activeBinId !== undefined) {
-                      const binDiff = binId - activeBinId;
-                      binIndex = Math.floor(sortedData.length / 2) + binDiff;
-                    }
-                  }
-
-                  if (binIndex < 0 || binIndex >= sortedData.length)
-                    return null;
-
-                  // Find the allocation for this bin
-                  const allocation = allocatedLiquidity.bidAsk.find(
-                    (a) => a.binId === binId
-                  );
-                  const maxAllocation = Math.max(
-                    ...allocatedLiquidity.bidAsk.map((a) => a.totalLiquidity)
-                  );
-                  const heightPercentage = allocation
-                    ? Math.max(
-                        5,
-                        (allocation.totalLiquidity / maxAllocation) * 100
-                      )
-                    : 5;
-
-                  return (
-                    <div
-                      key={`bidAsk-${binId}`}
-                      className="absolute bottom-0 border-l border-r border-green-400 transition-all duration-800 ease-out"
-                      style={{
-                        left: `${(binIndex / sortedData.length) * 100}%`,
-                        width: `${100 / sortedData.length}%`,
-                        height: `${heightPercentage}%`,
-                        background: `linear-gradient(to top, 
-                          rgba(34, 197, 94, 0.8), 
-                          rgba(34, 197, 94, 0.4), 
-                          rgba(34, 197, 94, 0.1)
-                        )`,
-                        borderRadius: "2px 2px 0 0",
-                      }}
-                    />
-                  );
-                })}
-            </>
-          )}
 
           {/* Grid lines */}
           <div className="absolute inset-0">
@@ -507,15 +326,9 @@ export function LiquidityBarChart({
           </div>
 
           {/* Bars */}
-          <div
-            className="flex h-full items-end justify-between px-1 gap-1 transition-transform duration-800 ease-out"
-            style={{
-              transform: `translateX(${getChartOffset()}px)`,
-            }}
-          >
+          <div className="flex h-full items-end justify-between px-1 gap-1">
             {sortedData.map((bin, index) => {
               // Calculate height as percentage of max liquidity with scaling factor
-              const scalingFactor = 1.5; // Increase this to make bars smaller
               const scaledMaxLiquidity = maxLiquidity * scalingFactor;
               const heightPercentage =
                 scaledMaxLiquidity > 0
@@ -529,7 +342,7 @@ export function LiquidityBarChart({
               const containerHeight = 256; // h-64 = 256px
               const height = (heightPercentage / 100) * containerHeight;
 
-              const isActive = bin.bin_id === activeBinId;
+              const isActive = bin.bin_id === currentSnapshot.active_bin_id;
               const isHovered = hoveredBin === bin.bin_id;
 
               return (
@@ -548,7 +361,6 @@ export function LiquidityBarChart({
                   onMouseMove={(e) => {
                     setMousePosition({ x: e.clientX, y: e.clientY });
                   }}
-                  onClick={() => onBinClick?.(bin.bin_id)}
                 >
                   {/* Bar with stacked tokens */}
                   <div
@@ -766,4 +578,6 @@ export function LiquidityBarChart({
       )}
     </div>
   );
-}
+};
+
+export default LiquidityChart;

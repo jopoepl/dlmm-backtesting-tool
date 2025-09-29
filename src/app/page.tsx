@@ -461,6 +461,7 @@ export default function Home() {
           <h2 className="text-2xl font-bold text-gray-900 mb-6">
             Your Current Positions
           </h2>
+          <p className="text-gray-600 text-sm mb-4">(Coming Soon)</p>
           {/* <PositionsList /> */}
         </div>
       </div>

@@ -193,19 +193,19 @@ function calculateGaussianWeights(
  */
 function calculateBidAskWeights(
   numBins: number,
-  concentration: "low" | "medium" | "high"
+  concentration?: "low" | "medium" | "high"
 ): number[] {
   const weights: number[] = [];
   const center = (numBins - 1) / 2;
 
   // Concentration parameters (higher = more concentrated at edges)
-  const concentrationMap = {
-    low: 0.5, // More spread toward center
-    medium: 1.0, // Balanced U-shape
-    high: 2.0, // Very concentrated at edges
-  };
+  // const concentrationMap = {
+  //   low: 0.5, // More spread toward center
+  //   medium: 1.0, // Balanced U-shape
+  //   high: 2.0, // Very concentrated at edges
+  // };
 
-  const sigma = concentrationMap[concentration] || 1.0;
+  const sigma = 1.0; // using medium concentration as default
 
   for (let i = 0; i < numBins; i++) {
     // Distance from center

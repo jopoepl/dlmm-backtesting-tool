@@ -21,7 +21,7 @@ export function RealTimeStrategyPerformance({
   isAnimating,
 }: RealTimeStrategyPerformanceProps) {
   return (
-    <div className="bg-white rounded-lg  p-4 mb-8 shadow-sm">
+    <div className="bg-white border rounded-lg  p-4 mb-8 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
           <h3 className="text-sm font-semibold text-gray-700">
@@ -140,6 +140,16 @@ export function RealTimeStrategyPerformance({
                       : "bg-gray-300"
                   }`}
                 />
+              </div>
+
+              {/* Strategy Description */}
+              <div className="text-xs italic text-gray-500 mb-2">
+                {strategy.key === "spot" &&
+                  "Equal distribution across 5 bins (active bin ±2)"}
+                {strategy.key === "curve" &&
+                  "Concentrated around active bin, tapering to 5 bins"}
+                {strategy.key === "bidAsk" &&
+                  "Liquidity at both ends of 5 bin range"}
               </div>
 
               {/* Activity Stats */}
