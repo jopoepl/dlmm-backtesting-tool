@@ -1,12 +1,7 @@
 {
   "functions": {
     "app/api/**": {
-      "excludeFiles": "{node_modules/@next/swc-linux-x64-gnu,node_modules/@next/swc-linux-x64-musl,node_modules/next/dist,node_modules/typescript/lib,node_modules/@img/sharp,node_modules/@img/sharp-libvips-linuxmusl-x64,node_modules/@img/sharp-libvips-linux-x64,node_modules/@esbuild/linux-x64,node_modules/esbuild/bin,node_modules/@saros-finance/dlmm-sdk,node_modules/@solana,node_modules/@coral-xyz,node_modules/bn.js,node_modules/lodash,node_modules/@babel/parser,node_modules/axe-core,node_modules/prettier,node_modules/eslint-plugin-import,node_modules/eslint-plugin-react,node_modules/@noble,node_modules/@ethereumjs,node_modules/ripple-binary-codec,node_modules/styled-jsx,node_modules/rxjs,node_modules/graphemer,node_modules/@tybys/wasm-util}/**"
-    }
-  },
-  "build": {
-    "env": {
-      "NODE_ENV": "production"
+      "excludeFiles": "{node_modules/@next,node_modules/typescript,node_modules/@img,node_modules/@esbuild,node_modules/esbuild}/**"
     }
   }
 }
