@@ -41,19 +41,41 @@ const nextConfig: NextConfig = {
     if (isServer) {
       config.externals = config.externals || [];
       config.externals.push({
+        // Next.js and build tools (should not be in serverless functions)
+        '@next/swc-linux-x64-gnu': 'commonjs @next/swc-linux-x64-gnu',
+        '@next/swc-linux-x64-musl': 'commonjs @next/swc-linux-x64-musl',
+        'next/dist': 'commonjs next/dist',
+        'typescript/lib': 'commonjs typescript/lib',
+        '@img/sharp': 'commonjs @img/sharp',
+        
         // Blockchain SDKs
         '@saros-finance/dlmm-sdk': 'commonjs @saros-finance/dlmm-sdk',
+        '@solana/spl-token': 'commonjs @solana/spl-token',
+        '@solana-program/token-2022': 'commonjs @solana-program/token-2022',
+        '@coral-xyz/anchor': 'commonjs @coral-xyz/anchor',
         'bn.js': 'commonjs bn.js',
         
         // Large utility libraries
         'lodash': 'commonjs lodash',
         '@babel/parser': 'commonjs @babel/parser',
         'axe-core': 'commonjs axe-core',
+        'prettier': 'commonjs prettier',
+        
+        // Development tools (shouldn't be in production)
+        'eslint-plugin-import': 'commonjs eslint-plugin-import',
+        'eslint-plugin-react': 'commonjs eslint-plugin-react',
         
         // Crypto libraries
         '@noble/hashes': 'commonjs @noble/hashes',
+        '@noble/curves': 'commonjs @noble/curves',
         '@ethereumjs/tx': 'commonjs @ethereumjs/tx',
         'ripple-binary-codec': 'commonjs ripple-binary-codec',
+        
+        // Other large dependencies
+        'styled-jsx': 'commonjs styled-jsx',
+        'rxjs': 'commonjs rxjs',
+        'graphemer': 'commonjs graphemer',
+        '@tybys/wasm-util': 'commonjs @tybys/wasm-util',
         
         // Supabase (keep only essential parts)
         '@supabase/auth-js': 'commonjs @supabase/auth-js',
@@ -73,9 +95,17 @@ const nextConfig: NextConfig = {
         process: false,
       };
       
-      // Exclude React Native dependencies from web build
+      // Exclude large packages from client-side bundle
       config.resolve.alias = {
         ...config.resolve.alias,
+        'axe-core': false,
+        'prettier': false,
+        'eslint-plugin-import': false,
+        'eslint-plugin-react': false,
+        'styled-jsx': false,
+        'rxjs': false,
+        'graphemer': false,
+        '@tybys/wasm-util': false,
         '@react-native-async-storage/async-storage': false,
         '@react-native/assets-registry': false,
         '@react-native/codegen': false,
