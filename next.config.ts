@@ -22,8 +22,6 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['@saros-finance/dlmm-sdk'],
   },
-  // External packages for serverless functions
-  // Note: Using webpack externals instead to avoid conflicts with transpilePackages
   // Turbopack configuration
   turbopack: {
     rules: {
@@ -33,6 +31,8 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  // External packages for serverless functions
+  // Note: Using webpack externals instead to avoid conflicts with transpilePackages
   // Fix routes manifest issue
   outputFileTracingRoot: process.cwd(),
   // Exclude large dependencies from serverless functions
@@ -68,52 +68,19 @@ const nextConfig: NextConfig = {
   },
   // Reduce bundle size
   webpack: (config, { isServer }) => {
-    // Exclude blockchain SDKs and large dependencies from serverless functions
+    // Exclude only the most critical large dependencies from serverless functions
     if (isServer) {
       config.externals = config.externals || [];
       config.externals.push({
-        // Next.js and build tools (should not be in serverless functions)
+        // Only exclude the largest dependencies that cause 250MB limit
         '@next/swc-linux-x64-gnu': 'commonjs @next/swc-linux-x64-gnu',
         '@next/swc-linux-x64-musl': 'commonjs @next/swc-linux-x64-musl',
         'next/dist': 'commonjs next/dist',
         'typescript/lib': 'commonjs typescript/lib',
-        '@img/sharp': 'commonjs @img/sharp',
         '@img/sharp-libvips-linuxmusl-x64': 'commonjs @img/sharp-libvips-linuxmusl-x64',
         '@img/sharp-libvips-linux-x64': 'commonjs @img/sharp-libvips-linux-x64',
         '@esbuild/linux-x64': 'commonjs @esbuild/linux-x64',
         'esbuild/bin': 'commonjs esbuild/bin',
-        
-        // Blockchain SDKs
-        '@saros-finance/dlmm-sdk': 'commonjs @saros-finance/dlmm-sdk',
-        '@solana/spl-token': 'commonjs @solana/spl-token',
-        '@solana-program/token-2022': 'commonjs @solana-program/token-2022',
-        '@coral-xyz/anchor': 'commonjs @coral-xyz/anchor',
-        'bn.js': 'commonjs bn.js',
-        
-        // Large utility libraries
-        'lodash': 'commonjs lodash',
-        '@babel/parser': 'commonjs @babel/parser',
-        'axe-core': 'commonjs axe-core',
-        'prettier': 'commonjs prettier',
-        
-        // Development tools (shouldn't be in production)
-        'eslint-plugin-import': 'commonjs eslint-plugin-import',
-        'eslint-plugin-react': 'commonjs eslint-plugin-react',
-        
-        // Crypto libraries
-        '@noble/hashes': 'commonjs @noble/hashes',
-        '@noble/curves': 'commonjs @noble/curves',
-        '@ethereumjs/tx': 'commonjs @ethereumjs/tx',
-        'ripple-binary-codec': 'commonjs ripple-binary-codec',
-        
-        // Other large dependencies
-        'styled-jsx': 'commonjs styled-jsx',
-        'rxjs': 'commonjs rxjs',
-        'graphemer': 'commonjs graphemer',
-        '@tybys/wasm-util': 'commonjs @tybys/wasm-util',
-        
-        // Supabase (keep only essential parts)
-        '@supabase/auth-js': 'commonjs @supabase/auth-js',
       });
     }
 
@@ -233,7 +200,7 @@ const nextConfig: NextConfig = {
   images: {
     formats: ['image/webp', 'image/avif'],
   },
-  // Reduce build output - remove standalone to avoid including node_modules
+  // Disable standalone to use Vercel's built-in optimizations
   // output: 'standalone',
 };
 
