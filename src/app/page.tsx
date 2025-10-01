@@ -1,9 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { WalletButton } from "@/components/wallet/WalletButton";
-import { BacktestingDashboard } from "@/components/backtesting/BacktestingDashboard";
-import { PriceService } from "@/lib/data/priceService";
 import { Modal } from "@/components/ui/Modal";
 import {
   testDatabaseConnection,
@@ -14,6 +12,12 @@ import {
   saveSnapshotToDatabase,
 } from "@/lib/data/snapshotService";
 import { DLMMService, SAROS_USDC_PAIR_ADDRESS } from "@/lib/dlmm/client";
+import { PriceService } from "@/lib/data/priceService";
+
+// Lazy load heavy components
+const Backtesting = lazy(() =>
+  import("@/components/backtestingFinal/Backtesting")
+);
 
 export default function Home() {
   const priceService = new PriceService();
@@ -453,17 +457,16 @@ export default function Home() {
       </nav>
 
       <div className="max-w-7xl mx-auto">
-        {/* Main Backtesting Dashboard */}
-        <BacktestingDashboard />
-
-        {/* Positions List (for later) */}
-        <div className="px-4 sm:px-6 lg:px-8 py-8 border-t">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">
-            Your Current Positions
-          </h2>
-          <p className="text-gray-600 text-sm mb-4">(Coming Soon)</p>
-          {/* <PositionsList /> */}
-        </div>
+        {/* Main Backtesting Component */}
+        <Suspense
+          fallback={
+            <div className="flex justify-center items-center h-64">
+              <div className="text-lg">Loading backtesting interface...</div>
+            </div>
+          }
+        >
+          <Backtesting />
+        </Suspense>
       </div>
 
       {/* Test Results Modal */}

@@ -4,12 +4,9 @@ import {
   WalletProvider,
 } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
-import {
-  PhantomWalletAdapter,
-  SolflareWalletAdapter,
-} from "@solana/wallet-adapter-wallets";
 import { clusterApiUrl } from "@solana/web3.js";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { loadWalletAdapters } from "@/lib/wallet/dynamicImports";
 
 export function WalletContextProvider({
   children,
@@ -17,11 +14,37 @@ export function WalletContextProvider({
   children: React.ReactNode;
 }) {
   const network = useMemo(() => clusterApiUrl("mainnet-beta"), []);
+  const [wallets, setWallets] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const wallets = useMemo(
-    () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],
-    []
-  );
+  useEffect(() => {
+    const loadWallets = async () => {
+      try {
+        const walletAdapters = await loadWalletAdapters();
+        const walletInstances = [
+          new walletAdapters.PhantomWalletAdapter(),
+          new walletAdapters.SolflareWalletAdapter(),
+        ];
+        setWallets(walletInstances);
+      } catch (error) {
+        console.error("Failed to load wallet adapters:", error);
+        // Fallback to empty array if loading fails
+        setWallets([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadWallets();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-lg">Loading wallet providers...</div>
+      </div>
+    );
+  }
 
   return (
     <ConnectionProvider endpoint={network}>

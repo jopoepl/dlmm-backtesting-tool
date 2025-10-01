@@ -1,5 +1,4 @@
 import { PublicKey } from "@solana/web3.js";
-import { LiquidityBookServices, MODE } from "@saros-finance/dlmm-sdk";
 import BN from "bn.js";
 import {
   PoolMetadata,
@@ -53,23 +52,45 @@ export const SAROS_USDC_PAIR_ADDRESS =
   "ADPKeitAZsAeRJfhG2GoDrZENB3xt9eZmggkj7iAXY78";
 
 export class DLMMService {
-  private dlmm: LiquidityBookServices;
+  private dlmm: any;
+  private isInitialized = false;
 
   constructor() {
-    this.dlmm = new LiquidityBookServices({
-      mode: MODE.MAINNET,
-      options: {
-        rpcUrl:
-          process.env.NEXT_PUBLIC_RPC_URL ||
-          "https://api.mainnet-beta.solana.com",
-      },
-    });
+    this.initializeServices();
+  }
+
+  private async initializeServices() {
+    try {
+      const { LiquidityBookServices, MODE } = await import(
+        "@saros-finance/dlmm-sdk"
+      );
+      this.dlmm = new LiquidityBookServices({
+        mode: MODE.MAINNET,
+        options: {
+          rpcUrl:
+            process.env.NEXT_PUBLIC_RPC_URL ||
+            "https://api.mainnet-beta.solana.com",
+        },
+      });
+      this.isInitialized = true;
+    } catch (error) {
+      console.error("Failed to initialize DLMM services:", error);
+    }
   }
 
   /**
    * Fetch pool metadata
    */
   async fetchPoolMetadata(poolAddress: string): Promise<PoolMetadata | null> {
+    if (!this.isInitialized) {
+      await this.initializeServices();
+    }
+
+    if (!this.dlmm) {
+      console.error("DLMM services not initialized");
+      return null;
+    }
+
     try {
       const metaData = await this.dlmm.fetchPoolMetadata(poolAddress);
       return metaData as PoolMetadata;

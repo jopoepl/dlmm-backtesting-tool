@@ -30,6 +30,7 @@ const LiquidityChart: React.FC<LiquidityChartProps> = ({
   const [currentSnapshot, setCurrentSnapshot] = useState<PoolSnapshot | null>(
     null
   );
+  const [selectedSnapshotIndex, setSelectedSnapshotIndex] = useState(0);
 
   // Update liquidity data when startingSnapshot changes
   useEffect(() => {
@@ -38,12 +39,21 @@ const LiquidityChart: React.FC<LiquidityChartProps> = ({
       setLiquidityData(distribution);
       setCurrentSnapshot(startingSnapshot);
       setCurrentSnapshotIndex(0);
+      setSelectedSnapshotIndex(0);
     } else {
       setLiquidityData([]);
       setCurrentSnapshot(null);
       setCurrentSnapshotIndex(0);
+      setSelectedSnapshotIndex(0);
     }
   }, [startingSnapshot]);
+
+  // Update selected snapshot index when filteredSnapshots change
+  useEffect(() => {
+    if (filteredSnapshots.length > 0) {
+      setSelectedSnapshotIndex(0);
+    }
+  }, [filteredSnapshots]);
 
   // Animation effect
   useEffect(() => {
@@ -70,6 +80,11 @@ const LiquidityChart: React.FC<LiquidityChartProps> = ({
   // Animation controls
   const startAnimation = () => {
     if (filteredSnapshots.length > 1) {
+      setCurrentSnapshotIndex(selectedSnapshotIndex);
+      const selectedSnapshot = filteredSnapshots[selectedSnapshotIndex];
+      setCurrentSnapshot(selectedSnapshot);
+      const distribution = snapshotToLiquidityDistribution(selectedSnapshot);
+      setLiquidityData(distribution);
       setIsAnimating(true);
     }
   };
@@ -81,9 +96,22 @@ const LiquidityChart: React.FC<LiquidityChartProps> = ({
   const resetAnimation = () => {
     setIsAnimating(false);
     setCurrentSnapshotIndex(0);
+    setSelectedSnapshotIndex(0);
     if (startingSnapshot) {
       setCurrentSnapshot(startingSnapshot);
       const distribution = snapshotToLiquidityDistribution(startingSnapshot);
+      setLiquidityData(distribution);
+    }
+  };
+
+  // Handle slider change
+  const handleSliderChange = (value: number) => {
+    setSelectedSnapshotIndex(value);
+    if (!isAnimating) {
+      const selectedSnapshot = filteredSnapshots[value];
+      setCurrentSnapshot(selectedSnapshot);
+      setCurrentSnapshotIndex(value);
+      const distribution = snapshotToLiquidityDistribution(selectedSnapshot);
       setLiquidityData(distribution);
     }
   };
@@ -214,32 +242,61 @@ const LiquidityChart: React.FC<LiquidityChartProps> = ({
           </div>
 
           {/* Animation Controls */}
-          <div className="flex items-center gap-2">
-            {!isAnimating ? (
+          <div className="flex items-center gap-4">
+            {/* Snapshot Slider */}
+            <div className="flex items-center gap-3 min-w-[200px]">
+              <span className="text-sm text-gray-600 whitespace-nowrap">
+                Start:
+              </span>
+              <input
+                type="range"
+                min="0"
+                max={Math.max(0, filteredSnapshots.length - 1)}
+                value={selectedSnapshotIndex}
+                onChange={(e) => handleSliderChange(parseInt(e.target.value))}
+                disabled={isAnimating}
+                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(selectedSnapshotIndex /
+                    Math.max(1, filteredSnapshots.length - 1)) *
+                    100}%, #e5e7eb ${(selectedSnapshotIndex /
+                    Math.max(1, filteredSnapshots.length - 1)) *
+                    100}%, #e5e7eb 100%)`,
+                }}
+              />
+              <span className="text-sm text-gray-600 whitespace-nowrap">
+                {selectedSnapshotIndex + 1}
+              </span>
+            </div>
+
+            {/* Control Buttons */}
+            <div className="flex items-center gap-2">
+              {!isAnimating ? (
+                <button
+                  onClick={startAnimation}
+                  disabled={filteredSnapshots.length <= 1}
+                  className="flex items-center gap-2 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                >
+                  <Play className="w-4 h-4" />
+                  Play
+                </button>
+              ) : (
+                <button
+                  onClick={stopAnimation}
+                  className="flex items-center gap-2 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
+                >
+                  <Pause className="w-4 h-4" />
+                  Pause
+                </button>
+              )}
               <button
-                onClick={startAnimation}
-                disabled={filteredSnapshots.length <= 1}
-                className="flex items-center gap-2 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                onClick={resetAnimation}
+                className="flex items-center gap-2 px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm"
               >
-                <Play className="w-4 h-4" />
-                Play
+                <Square className="w-4 h-4" />
+                Reset
               </button>
-            ) : (
-              <button
-                onClick={stopAnimation}
-                className="flex items-center gap-2 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
-              >
-                <Pause className="w-4 h-4" />
-                Pause
-              </button>
-            )}
-            <button
-              onClick={resetAnimation}
-              className="flex items-center gap-2 px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm"
-            >
-              <Square className="w-4 h-4" />
-              Reset
-            </button>
+            </div>
           </div>
         </div>
 

@@ -1,40 +1,72 @@
-# DLMM Analytics & Backtesting Tool
+# DLMM Backtesting Tool
 
-A comprehensive analytics and backtesting platform for Dynamic Liquidity Market Maker (DLMM) pools on Solana. This tool provides real-time data collection, historical analysis, and backtesting capabilities for DLMM trading strategies.
+A comprehensive backtesting platform for Dynamic Liquidity Market Maker (DLMM) pools on Solana. This tool enables you to test different liquidity allocation strategies against historical data to optimize your DeFi trading performance.
 
-## 🚀 Features
+## 🎯 Overview
 
-### ✅ Currently Implemented
+This tool captures hourly snapshots of SAROS DLMM pool data and provides a complete backtesting environment to analyze different liquidity allocation strategies. Test your strategies against real market data to find the most profitable configurations.
 
-- **Real-time Snapshot Collection**: Automated data collection from DLMM pools every hour
-- **Pool Analytics Dashboard**: Live monitoring of pool metrics, reserves, and bin distributions
-- **Database Integration**: Supabase-powered data storage with structured schema
-- **Market Price Integration**: Real-time price feeds from CoinGecko API
-- **Wallet Integration**: Connect and manage Solana wallets
-- **Admin Tools**: Database testing and connection validation
+## 🚀 Key Features
 
-### 🔄 Coming Soon
+### 📊 Real-time Data Collection
 
-- **Advanced Backtesting Engine**: Historical strategy testing with customizable parameters
-- **Strategy Performance Analysis**: Detailed metrics and risk assessment
-- **Portfolio Optimization**: Multi-pool strategy backtesting
-- **Alert System**: Real-time notifications for market conditions
-- **Export Capabilities**: Data export for external analysis
+- **Automated Snapshots**: Captures pool state every hour including:
+  - Active bin ID and current price
+  - Liquidity distribution across bins
+  - Pool reserves and configuration
+  - Market price data from external APIs
+
+### 🧪 Strategy Backtesting Engine
+
+- **Multiple Strategy Types**:
+  - **Spot Strategy**: Equal liquidity allocation across all bins
+  - **Curve Strategy**: Gaussian distribution with higher concentration near active bin
+  - **Bid-Ask Strategy**: U-shaped distribution focusing on edge bins
+- **Configurable Parameters**:
+  - Liquidity amount to allocate
+  - Bin range percentage (e.g., 2% around current price)
+  - Concentration levels (low, medium, high)
+
+### 📈 Comprehensive Analytics
+
+- **Time in Range**: Percentage of time your strategy's bins were active
+- **Liquidity Efficiency**: How effectively your allocated liquidity was utilized
+- **Fee Earnings**: Calculated using real trading volume data from GeckoTerminal
+- **Performance Comparison**: Side-by-side analysis of different strategies
+
+### 🎨 Interactive Dashboard
+
+- **Strategy Configuration**: Visual interface to set up backtesting parameters
+- **Allocation Visualization**: Charts showing how liquidity is distributed across bins
+- **Results Analysis**: Detailed performance metrics and comparisons
+- **Historical Simulation**: Timeline view of how pool liquidity changed over time
 
 ## 🏗️ Architecture
 
-### Data Collection
+### Data Flow
 
-- **Automated Snapshots**: Hourly collection of pool state, reserves, and bin data
-- **Market Context**: Integration with external price feeds for market correlation
-- **Rate Limiting**: Intelligent retry logic with exponential backoff
-- **Error Handling**: Robust error recovery and logging
+1. **Snapshot Collection**: Hourly automated data capture from DLMM pools
+2. **Strategy Configuration**: User defines liquidity allocation parameters
+3. **Backtesting Engine**: Simulates strategy performance against historical data
+4. **Volume Analysis**: Integrates GeckoTerminal OHLCV data for fee calculations
+5. **Results Visualization**: Comprehensive dashboard with charts and tables
 
-### Database Schema
+### Core Components
 
-- **Pool Snapshots**: Historical pool state and configuration data
-- **Bin Data**: Detailed liquidity distribution across price bins
-- **Market Data**: External price feeds and market metrics
+#### Strategy Calculations (`backtestingCalculations.ts`)
+
+- **Time in Range**: Measures how often your strategy's bins were active
+- **Liquidity Efficiency**: Calculates the percentage of your liquidity that was actually utilized
+- **Fee Earnings**:
+  - Fetches daily trading volume from GeckoTerminal
+  - Proportionally distributes volume to active bins
+  - Calculates fees based on your strategy's liquidity share in each bin
+
+#### Data Services
+
+- **Snapshot Service**: Manages pool state data collection and storage
+- **Price Service**: Integrates with external price feeds
+- **Real Data Service**: Handles live data processing
 
 ## 🛠️ Getting Started
 
@@ -44,9 +76,23 @@ A comprehensive analytics and backtesting platform for Dynamic Liquidity Market 
 - Supabase account and project
 - Solana RPC endpoint
 
-### Environment Setup
+### Installation
 
-Create a `.env.local` file in the project root:
+```bash
+# Clone the repository
+git clone <repository-url>
+cd dlmm-analytics
+
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env.local
+```
+
+### Environment Configuration
+
+Create a `.env.local` file:
 
 ```bash
 # Supabase Configuration
@@ -54,76 +100,109 @@ NEXT_PUBLIC_SUPABASE_URL=your_supabase_url_here
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
 
-# Solana RPC (optional, uses default if not provided)
+# Solana RPC
 NEXT_PUBLIC_SOLANA_RPC_URL=your_rpc_url_here
 ```
 
-### Installation
+### Running the Application
 
 ```bash
-# Install dependencies
-npm install
-
-# Run development server
+# Start development server
 npm run dev
+
+# Open http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to access the dashboard.
+## 📊 How to Use
 
-## 📊 Current Capabilities
+### 1. Configure Your Strategy
 
-### Snapshot Collection
+- Select the pool you want to backtest
+- Choose your liquidity allocation amount
+- Set the bin range percentage (how wide around current price)
+- Pick concentration level for curve and bid-ask strategies
 
-- **Pool Metadata**: Active bin, bin step, fees, and configuration
-- **Reserve Data**: Token reserves with proper decimal handling
-- **Bin Distribution**: Liquidity distribution across price ranges
-- **Market Context**: Current market price and deviation analysis
+### 2. Run Backtesting
 
-### Data Storage
+- Select your time period for analysis
+- The tool will simulate your strategy against historical data
+- View real-time progress as calculations complete
 
-- **Structured Schema**: Optimized for analytics and backtesting
-- **Real-time Updates**: Live data collection and storage
-- **Data Validation**: Type-safe data handling and validation
+### 3. Analyze Results
 
-## 🔮 Backtesting Roadmap
+- **Strategy Config Tab**: See how your liquidity is allocated
+- **Results Tab**: View detailed performance metrics
+- **Comparison Table**: Compare different strategies side-by-side
+- **Simulator Tab**: Watch how pool liquidity changed over time
 
-The backtesting engine will enable:
+## 📈 Understanding the Metrics
 
-1. **Strategy Definition**: Custom trading strategies based on pool metrics
-2. **Historical Simulation**: Test strategies against historical data
-3. **Performance Metrics**: ROI, Sharpe ratio, max drawdown analysis
-4. **Risk Assessment**: Volatility and correlation analysis
-5. **Optimization**: Parameter tuning and strategy refinement
+### Time in Range
 
-## 🚀 Deployment
+**Simple Explanation**: This measures what percentage of the time your strategy's bins were the "active" bins (where trades were happening). Higher is better - it means your liquidity was in the right place more often.
 
-### Vercel (Recommended)
+### Liquidity Efficiency
 
-```bash
-# Deploy to Vercel
-vercel --prod
-```
+**Simple Explanation**: This shows how much of your allocated liquidity was actually being used for trades. If you allocated $1000 but only $200 was actively trading, your efficiency would be 20%.
 
-### Environment Variables
+### Fee Earnings
 
-Ensure all required environment variables are set in your deployment platform.
+**Simple Explanation**: This calculates how much you would have earned in trading fees. The tool:
 
-## 📈 Usage
+1. Gets real daily trading volume from GeckoTerminal
+2. Figures out which bins were active each day
+3. Calculates your share of the fees based on how much liquidity you had in those active bins
 
-1. **Connect Wallet**: Use the wallet button to connect your Solana wallet
-2. **View Analytics**: Monitor real-time pool metrics and historical data
-3. **Test Database**: Use admin tools to verify data collection
-4. **Collect Snapshots**: Manual snapshot collection for testing
+## 🔮 Future Roadmap
+
+### Phase 1: Multi-Pool Support
+
+- Add support for multiple DLMM pools
+- Database storage for snapshots
+- Cross-pool strategy analysis
+
+### Phase 2: Enhanced Metrics
+
+- More sophisticated performance indicators
+- Risk-adjusted returns
+- Drawdown analysis
+- Correlation metrics
+
+### Phase 3: Advanced Features
+
+- Real-time swap fee calculation using swap data APIs
+- Machine learning strategy optimization
+- Portfolio-level backtesting
+- Alert system for optimal strategy conditions
 
 ## 🤝 Contributing
 
-This project is actively developed. Contributions are welcome for:
+This is an open-source project! We welcome contributions in:
 
-- Backtesting engine development
-- Additional analytics features
-- UI/UX improvements
-- Documentation enhancements
+- **Strategy Development**: New liquidity allocation algorithms
+- **Metrics Enhancement**: Additional performance indicators
+- **UI/UX Improvements**: Better visualization and user experience
+- **Data Integration**: Support for more data sources
+- **Documentation**: Help others understand and use the tool
+
+### How to Contribute
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
 ## 📄 License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🆘 Support
+
+- **Issues**: Report bugs or request features via GitHub Issues
+- **Discussions**: Join community discussions for strategy ideas
+- **Documentation**: Check the code comments for detailed implementation details
+
+---
+
+**Built with ❤️ for the DeFi community**

@@ -1,30 +1,44 @@
 "use client";
-import React, { useState, useEffect, useMemo } from "react";
-import StrategyConfig from "./StrategyConfig";
-import StrategyPerformance from "./StrategyPerformance";
-import LiquidityChart from "./LiquidityChart";
+import React, { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import { supabase } from "@/lib/data/supabaseClient";
 import { PoolSnapshot } from "@/types/snapshots";
 import { Strategy } from "@/types/strategy";
+import { SAROS_USDC_PAIR_ADDRESS } from "@/lib/dlmm/client";
 import {
   allocateSpotLiquidity,
   allocateCurveLiquidity,
   allocateBidAskLiquidity,
+  calculateStrategyPerformance,
 } from "@/lib/backtestingFinal/backtestingCalculations";
+import { BarChart3 } from "lucide-react";
+
+// Lazy load heavy components
+const StrategyConfig = lazy(() => import("./StrategyConfig"));
+const StrategyPerformance = lazy(() => import("./StrategyPerformance"));
+const LiquidityChart = lazy(() => import("./LiquidityChart"));
+const BacktestingTable = lazy(() => import("./BacktestingTable"));
 
 const Backtesting: React.FC = () => {
   // Snapshot data state
   const [snapshots, setSnapshots] = useState<PoolSnapshot[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPeriod, setSelectedPeriod] = useState<string>("7d"); // Default: 7 days
-  const [totalLiquidity, setTotalLiquidity] = useState(10000);
+  const [selectedPeriod, setSelectedPeriod] = useState<string>("30d"); // Default: 30 days
+  const [selectedPoolAddress, setSelectedPoolAddress] = useState<string>(
+    SAROS_USDC_PAIR_ADDRESS
+  );
+  const [totalLiquidity, setTotalLiquidity] = useState(1000);
   const [binRange, setBinRange] = useState(1);
   const [strategy, setStrategy] = useState<Strategy>({
     spot: [],
     curve: [],
     bidAsk: [],
   });
+  const [ohlcvData, setOhlcvData] = useState<any>(null);
+  const [strategyPerformance, setStrategyPerformance] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<
+    "config" | "comparison" | "simulator"
+  >("config");
 
   // Fetch snapshots from Supabase (only once, load 30 days)
   const fetchSnapshots = async () => {
@@ -39,6 +53,7 @@ const Backtesting: React.FC = () => {
       const { data, error } = await supabase
         .from("pool_snapshots")
         .select("*")
+        .eq("pool_address", selectedPoolAddress)
         .gte("timestamp", startTime)
         .lte("timestamp", endTime)
         .order("timestamp", { ascending: true }); // Loading the oldest first for backtesting
@@ -76,6 +91,7 @@ const Backtesting: React.FC = () => {
       console.log(
         `✅ Fetched ${transformedSnapshots.length} snapshots for last 30 days`
       );
+      console.log("Snapshots:", transformedSnapshots[10]);
     } catch (err) {
       console.error("❌ Error fetching snapshots:", err);
       setError(
@@ -99,10 +115,59 @@ const Backtesting: React.FC = () => {
     return periodMap[period] || 7;
   };
 
-  // Fetch snapshots on component mount (will fetch only once)
+  const fetchOHLCVData = async (poolAddress: string) => {
+    try {
+      const response = await fetch(
+        `https://api.geckoterminal.com/api/v2/networks/solana/pools/${poolAddress}/ohlcv/day`
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("OHLCV Data:", data.data.attributes.ohlcv_list);
+      setOhlcvData(data.data.attributes.ohlcv_list);
+    } catch (error) {
+      console.error("Error fetching OHLCV data:", error);
+      throw error;
+    }
+  };
+
+  // Fetch snapshots on component mount and when pool address changes
   useEffect(() => {
     fetchSnapshots();
-  }, []);
+  }, [selectedPoolAddress]);
+
+  // Fetch OHLCV data when snapshots are available
+  useEffect(() => {
+    if (snapshots.length > 0) {
+      fetchOHLCVData(selectedPoolAddress);
+    }
+  }, [snapshots, selectedPoolAddress]);
+
+  // Calculate strategy performance when OHLCV data is available
+  useEffect(() => {
+    const calculatePerformance = async () => {
+      if (snapshots.length > 0 && ohlcvData && ohlcvData.length > 0) {
+        const performance = await calculateStrategyPerformance(
+          strategy,
+          snapshots,
+          totalLiquidity,
+          ohlcvData
+        );
+
+        console.log(
+          `Strategy Performance for ${snapshots.length} snapshots:`,
+          performance
+        );
+
+        setStrategyPerformance(performance);
+      }
+    };
+
+    calculatePerformance();
+  }, [snapshots, strategy, totalLiquidity, ohlcvData]);
 
   // Memoized filtered snapshots based on selected period
   const filteredSnapshots = useMemo(() => {
@@ -169,14 +234,56 @@ const Backtesting: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <div className="mb-8 text-center ">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          DLMM Backtesting Dashboard
+      {/* Accuracy Warning Note */}
+      <div className="mb-6 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+        <div className="flex items-start gap-2">
+          <div className="w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+            <span className="text-white text-xs font-bold">!</span>
+          </div>
+          <div className="text-[10px] text-amber-800">
+            <p className="font-medium mb-1">Accuracy Note:</p>
+            <p>
+              Smaller time selection windows (1D, 7D) may not be accurate for
+              high liquidity configurations (e.g., $10K) in less popular pools.
+              Snapshot data from Sept 24-28 is not available due to technical
+              issues for this pool - this is for demo purposes.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Header Section */}
+      <div className="mb-8 text-center">
+        <h1 className="text-3xl font-bold text-gray-900 mb-4 flex items-center justify-center gap-3">
+          <BarChart3 className="w-8 h-8 text-blue-600" />
+          SAROS DLMM Backtesting Dashboard
         </h1>
-        <p className="text-gray-600">
+        <p className="text-lg text-gray-600 max-w-3xl mx-auto">
           Compare all three DLMM strategies against historical SAROS/USDC data.
           See which approach works best for different market conditions.
         </p>
+
+        {/* Pool Selection Dropdown */}
+        <div className="mt-4 flex justify-center">
+          <div className="flex items-center gap-2">
+            <label
+              htmlFor="pool-select"
+              className="text-sm font-medium text-gray-700"
+            >
+              Pool Address:
+            </label>
+            <select
+              id="pool-select"
+              value={selectedPoolAddress}
+              onChange={(e) => setSelectedPoolAddress(e.target.value)}
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value={SAROS_USDC_PAIR_ADDRESS}>
+                SAROS/USDC ({SAROS_USDC_PAIR_ADDRESS.slice(0, 8)}...)
+              </option>
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* Snapshot Info */}
@@ -246,36 +353,135 @@ const Backtesting: React.FC = () => {
           <h2 className="text-xl font-semibold text-gray-800 mb-4">
             Select Strategy Configuration
           </h2>
-          <StrategyConfig
-            selectedPeriod={selectedPeriod}
-            onPeriodChange={setSelectedPeriod}
-            filteredSnapshots={filteredSnapshots}
-            totalLiquidity={totalLiquidity}
-            onLiquidityChange={setTotalLiquidity}
-            binRange={binRange}
-            onBinRangeChange={setBinRange}
-            strategy={strategy}
-            startingSnapshot={startingSnapshot}
-          />
+          <Suspense
+            fallback={
+              <div className="flex justify-center items-center h-32">
+                <div className="text-lg">Loading strategy config...</div>
+              </div>
+            }
+          >
+            <StrategyConfig
+              selectedPeriod={selectedPeriod}
+              onPeriodChange={setSelectedPeriod}
+              filteredSnapshots={filteredSnapshots}
+              totalLiquidity={totalLiquidity}
+              onLiquidityChange={setTotalLiquidity}
+              binRange={binRange}
+              onBinRangeChange={setBinRange}
+              strategy={strategy}
+              startingSnapshot={startingSnapshot}
+            />
+          </Suspense>
         </div>
 
-        {/* Backtesting Results Section */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">
-            Backtesting Results
-          </h2>
-          <StrategyPerformance strategy={strategy} />
-        </div>
+        {/* Tab Navigation */}
+        <div className="bg-white rounded-lg shadow-md">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8 px-6">
+              <button
+                onClick={() => setActiveTab("config")}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === "config"
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                Specific Config
+              </button>
+              <button
+                onClick={() => setActiveTab("comparison")}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === "comparison"
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                Comparison Table
+              </button>
+              <button
+                onClick={() => setActiveTab("simulator")}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === "simulator"
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                Simulator
+              </button>
+            </nav>
+          </div>
 
-        {/* Liquidity Chart Section */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">
-            Liquidity Allocation & Performance
-          </h2>
-          <LiquidityChart
-            filteredSnapshots={filteredSnapshots}
-            startingSnapshot={startingSnapshot}
-          />
+          {/* Tab Content */}
+          <div className="p-6">
+            {activeTab === "config" && (
+              <Suspense
+                fallback={
+                  <div className="flex justify-center items-center h-64">
+                    <div className="text-lg">
+                      Loading strategy performance...
+                    </div>
+                  </div>
+                }
+              >
+                <StrategyPerformance
+                  strategy={strategy}
+                  performance={strategyPerformance}
+                  config={{
+                    totalLiquidity,
+                    binRange,
+                    selectedPeriod,
+                    days: periodToDays(selectedPeriod),
+                    totalBins:
+                      filteredSnapshots.length > 0
+                        ? Math.floor(
+                            (binRange * 100) /
+                              (filteredSnapshots[0].bin_step || 1)
+                          ) *
+                            2 +
+                          1
+                        : 0,
+                  }}
+                />
+              </Suspense>
+            )}
+
+            {activeTab === "comparison" && (
+              <Suspense
+                fallback={
+                  <div className="flex justify-center items-center h-64">
+                    <div className="text-lg">Loading comparison table...</div>
+                  </div>
+                }
+              >
+                <BacktestingTable
+                  snapshots={snapshots}
+                  ohlcvData={ohlcvData}
+                  periodToDays={periodToDays}
+                />
+              </Suspense>
+            )}
+
+            {activeTab === "simulator" && (
+              <div className="space-y-6">
+                <div>
+                  <Suspense
+                    fallback={
+                      <div className="flex justify-center items-center h-64">
+                        <div className="text-lg">
+                          Loading liquidity chart...
+                        </div>
+                      </div>
+                    }
+                  >
+                    <LiquidityChart
+                      filteredSnapshots={filteredSnapshots}
+                      startingSnapshot={startingSnapshot}
+                    />
+                  </Suspense>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

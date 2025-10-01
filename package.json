@@ -6,6 +6,7 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "build:clean": "rm -rf .next && next build --turbopack",
+    "build:analyze": "ANALYZE=true next build --turbopack",
     "start": "next start",
     "lint": "eslint",
     "snapshot": "node scripts/snapshot-scheduler.js",
@@ -13,31 +14,32 @@
   },
   "dependencies": {
     "@saros-finance/dlmm-sdk": "^1.4.0",
-    "@solana/wallet-adapter-base": "^0.9.27",
     "@solana/wallet-adapter-react": "^0.15.39",
     "@solana/wallet-adapter-react-ui": "^0.9.39",
     "@solana/wallet-adapter-wallets": "^0.19.37",
     "@solana/web3.js": "^1.98.4",
     "@supabase/supabase-js": "^2.57.4",
+    "bn.js": "^5.2.2",
+    "dotenv": "^16.4.5",
     "lucide-react": "^0.544.0",
     "next": "15.5.3",
+    "node-cron": "^3.0.3",
     "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "recharts": "^3.2.0",
-    "dotenv": "^16.4.5",
-    "node-cron": "^3.0.3"
+    "react-dom": "19.1.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@next/bundle-analyzer": "^15.5.4",
     "@tailwindcss/postcss": "^4",
     "@types/bn.js": "^5.2.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "depcheck": "^1.4.7",
     "eslint": "^9",
     "eslint-config-next": "15.5.3",
     "tailwindcss": "^4",
-    "typescript": "^5",
-    "tsx": "^4.7.0"
+    "tsx": "^4.7.0",
+    "typescript": "^5"
   }
 }
