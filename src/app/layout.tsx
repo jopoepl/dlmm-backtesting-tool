@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from 'next/font/google'
 import "./globals.css";
-import "@solana/wallet-adapter-react-ui/styles.css";
-import { WalletContextProvider } from '@/components/wallet/WalletContextProvider'
+// import "@solana/wallet-adapter-react-ui/styles.css";
+// import { WalletContextProvider } from '@/components/wallet/WalletContextProvider'
 
 
 const inter = Inter({
@@ -24,9 +24,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <WalletContextProvider>
+        {/* <WalletContextProvider> */}
           {children}
-        </WalletContextProvider>
+        {/* </WalletContextProvider> */}
       </body>
     </html>
   )

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, lazy, Suspense } from "react";
-import { WalletButton } from "@/components/wallet/WalletButton";
+// import { WalletButton } from "@/components/wallet/WalletButton";
 import { Modal } from "@/components/ui/Modal";
 import {
   testDatabaseConnection,
@@ -451,7 +451,7 @@ export default function Home() {
                 </>
               )}
             </div>
-            <WalletButton />
+            {/* <WalletButton /> */}
           </div>
         </div>
       </nav>

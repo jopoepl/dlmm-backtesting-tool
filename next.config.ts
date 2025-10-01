@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
   },
   // Optimize bundle size
   experimental: {
-    optimizePackageImports: ['@solana/web3.js', '@saros-finance/dlmm-sdk'],
+    optimizePackageImports: ['@saros-finance/dlmm-sdk'],
   },
   // External packages for serverless functions
   // Note: Using webpack externals instead to avoid conflicts with transpilePackages
@@ -33,18 +33,30 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  // Fix routes manifest issue
+  outputFileTracingRoot: process.cwd(),
   // Reduce bundle size
   webpack: (config, { isServer }) => {
-    // Exclude blockchain SDKs from serverless functions
+    // Exclude blockchain SDKs and large dependencies from serverless functions
     if (isServer) {
       config.externals = config.externals || [];
       config.externals.push({
-        '@solana/web3.js': 'commonjs @solana/web3.js',
+        // Blockchain SDKs
         '@saros-finance/dlmm-sdk': 'commonjs @saros-finance/dlmm-sdk',
-        '@solana/wallet-adapter-react': 'commonjs @solana/wallet-adapter-react',
-        '@solana/wallet-adapter-react-ui': 'commonjs @solana/wallet-adapter-react-ui',
-        '@solana/wallet-adapter-wallets': 'commonjs @solana/wallet-adapter-wallets',
         'bn.js': 'commonjs bn.js',
+        
+        // Large utility libraries
+        'lodash': 'commonjs lodash',
+        '@babel/parser': 'commonjs @babel/parser',
+        'axe-core': 'commonjs axe-core',
+        
+        // Crypto libraries
+        '@noble/hashes': 'commonjs @noble/hashes',
+        '@ethereumjs/tx': 'commonjs @ethereumjs/tx',
+        'ripple-binary-codec': 'commonjs ripple-binary-codec',
+        
+        // Supabase (keep only essential parts)
+        '@supabase/auth-js': 'commonjs @supabase/auth-js',
       });
     }
 

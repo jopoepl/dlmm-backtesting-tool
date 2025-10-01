@@ -1,4 +1,6 @@
-import { PublicKey } from "@solana/web3.js";
+// import { PublicKey } from "@solana/web3.js";
+// For now, we'll use string type instead of PublicKey
+type PublicKey = string;
 
 /**
  * DLMM Pool Metadata interface

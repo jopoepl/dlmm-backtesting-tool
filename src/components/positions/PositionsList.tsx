@@ -1,12 +1,14 @@
 "use client";
 
-import { useWallet } from "@solana/wallet-adapter-react";
+// import { useWallet } from "@solana/wallet-adapter-react";
 import { useEffect, useState, useCallback } from "react";
 import { DLMMPosition } from "@/types/dlmm";
 import { Wallet, TrendingUp } from "lucide-react";
 
 export function PositionsList() {
-  const { publicKey, connected } = useWallet();
+  // const { publicKey, connected } = useWallet();
+  const publicKey = null;
+  const connected = false;
   const [positions, setPositions] = useState<DLMMPosition[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
