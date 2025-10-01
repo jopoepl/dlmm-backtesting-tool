@@ -35,6 +35,37 @@ const nextConfig: NextConfig = {
   },
   // Fix routes manifest issue
   outputFileTracingRoot: process.cwd(),
+  // Exclude large dependencies from serverless functions
+  outputFileTracingExcludes: {
+    '*': [
+      './node_modules/@next/swc-linux-x64-gnu/**/*',
+      './node_modules/@next/swc-linux-x64-musl/**/*',
+      './node_modules/next/dist/**/*',
+      './node_modules/typescript/lib/**/*',
+      './node_modules/@img/sharp/**/*',
+      './node_modules/@img/sharp-libvips-linuxmusl-x64/**/*',
+      './node_modules/@img/sharp-libvips-linux-x64/**/*',
+      './node_modules/@esbuild/linux-x64/**/*',
+      './node_modules/esbuild/bin/**/*',
+      './node_modules/@saros-finance/dlmm-sdk/**/*',
+      './node_modules/@solana/**/*',
+      './node_modules/@coral-xyz/**/*',
+      './node_modules/bn.js/**/*',
+      './node_modules/lodash/**/*',
+      './node_modules/@babel/parser/**/*',
+      './node_modules/axe-core/**/*',
+      './node_modules/prettier/**/*',
+      './node_modules/eslint-plugin-import/**/*',
+      './node_modules/eslint-plugin-react/**/*',
+      './node_modules/@noble/**/*',
+      './node_modules/@ethereumjs/**/*',
+      './node_modules/ripple-binary-codec/**/*',
+      './node_modules/styled-jsx/**/*',
+      './node_modules/rxjs/**/*',
+      './node_modules/graphemer/**/*',
+      './node_modules/@tybys/wasm-util/**/*',
+    ],
+  },
   // Reduce bundle size
   webpack: (config, { isServer }) => {
     // Exclude blockchain SDKs and large dependencies from serverless functions
@@ -47,6 +78,10 @@ const nextConfig: NextConfig = {
         'next/dist': 'commonjs next/dist',
         'typescript/lib': 'commonjs typescript/lib',
         '@img/sharp': 'commonjs @img/sharp',
+        '@img/sharp-libvips-linuxmusl-x64': 'commonjs @img/sharp-libvips-linuxmusl-x64',
+        '@img/sharp-libvips-linux-x64': 'commonjs @img/sharp-libvips-linux-x64',
+        '@esbuild/linux-x64': 'commonjs @esbuild/linux-x64',
+        'esbuild/bin': 'commonjs esbuild/bin',
         
         // Blockchain SDKs
         '@saros-finance/dlmm-sdk': 'commonjs @saros-finance/dlmm-sdk',
