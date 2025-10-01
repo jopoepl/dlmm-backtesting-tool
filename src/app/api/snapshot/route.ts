@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { logPoolData } from "@/lib/data/snapshotService";
 
 export async function GET(request: NextRequest) {
   try {
     console.log("🔍 API: Starting snapshot collection...");
     console.log("⏰ Timestamp:", new Date().toISOString());
+
+    // Dynamic import to avoid bundling blockchain dependencies
+    const { logPoolData } = await import("@/lib/data/snapshotService");
 
     // Collect and save snapshot
     const snapshot = await logPoolData();

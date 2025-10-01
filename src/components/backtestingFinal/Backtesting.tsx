@@ -375,9 +375,10 @@ const Backtesting: React.FC = () => {
         </div>
 
         {/* Tab Navigation */}
-        <div className="bg-white rounded-lg shadow-md">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8 px-6">
+        <div className="bg-white rounded-lg shadow-md border-2 border-blue-200">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-2 border-b border-blue-200">
+            <h3 className="text-xl font-bold my-2">📊 Results & Analysis</h3>
+            <nav className="-mb-px flex space-x-8">
               <button
                 onClick={() => setActiveTab("config")}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${

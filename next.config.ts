@@ -20,18 +20,34 @@ const nextConfig: NextConfig = {
   },
   // Optimize bundle size
   experimental: {
-    optimizePackageImports: ['@solana/web3.js', '@saros-finance/dlmm-sdk', 'recharts'],
-    turbo: {
-      rules: {
-        '*.svg': {
-          loaders: ['@svgr/webpack'],
-          as: '*.js',
-        },
+    optimizePackageImports: ['@solana/web3.js', '@saros-finance/dlmm-sdk'],
+  },
+  // External packages for serverless functions
+  // Note: Using webpack externals instead to avoid conflicts with transpilePackages
+  // Turbopack configuration
+  turbopack: {
+    rules: {
+      '*.svg': {
+        loaders: ['@svgr/webpack'],
+        as: '*.js',
       },
     },
   },
   // Reduce bundle size
   webpack: (config, { isServer }) => {
+    // Exclude blockchain SDKs from serverless functions
+    if (isServer) {
+      config.externals = config.externals || [];
+      config.externals.push({
+        '@solana/web3.js': 'commonjs @solana/web3.js',
+        '@saros-finance/dlmm-sdk': 'commonjs @saros-finance/dlmm-sdk',
+        '@solana/wallet-adapter-react': 'commonjs @solana/wallet-adapter-react',
+        '@solana/wallet-adapter-react-ui': 'commonjs @solana/wallet-adapter-react-ui',
+        '@solana/wallet-adapter-wallets': 'commonjs @solana/wallet-adapter-wallets',
+        'bn.js': 'commonjs bn.js',
+      });
+    }
+
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
@@ -48,7 +64,6 @@ const nextConfig: NextConfig = {
       // Exclude React Native dependencies from web build
       config.resolve.alias = {
         ...config.resolve.alias,
-        'react-native': 'react-native-web',
         '@react-native-async-storage/async-storage': false,
         '@react-native/assets-registry': false,
         '@react-native/codegen': false,
@@ -115,10 +130,21 @@ const nextConfig: NextConfig = {
               priority: 30,
               maxSize: 200000,
             },
+            // Exclude large utility libraries from main bundle
+            utils: {
+              test: /[\\/]node_modules[\\/](lodash|moment|date-fns)[\\/]/,
+              name: 'utils',
+              chunks: 'all',
+              priority: 10,
+              maxSize: 100000,
+            },
           },
         },
         usedExports: true,
         sideEffects: false,
+        // Enable tree shaking
+        providedExports: true,
+        concatenateModules: true,
       };
     }
     
