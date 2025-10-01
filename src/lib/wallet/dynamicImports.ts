@@ -1,6 +1,9 @@
 // Dynamic imports for heavy Solana libraries to reduce initial bundle size
+// Wallet functionality temporarily disabled
 
 export const loadWalletAdapters = async () => {
+  // Wallet functionality temporarily disabled
+  throw new Error("Wallet functionality is temporarily disabled");
   const {
     PhantomWalletAdapter,
     SolflareWalletAdapter,
